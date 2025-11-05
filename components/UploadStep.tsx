@@ -38,7 +38,7 @@ IPOs:
   - no guarantee of success
 - firm commitment
   - underwriter buys the entire issue at a slight discount, and resells at offer price
-- auction IPO
+  - auction IPO
   - investors submit bids for price and qty
   - final price is the final price where everything clears
   - all winners pay the same final price, even if they bid higher
@@ -162,9 +162,9 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error }) => {
 
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-8 text-center">
-      <h1 className="text-5xl font-bold text-dark-text">Focus Flow</h1>
-      <p className="text-xl text-light-text mt-4 mb-12">What are you learning today?</p>
+    <div className="w-full max-w-2xl mx-auto p-8 text-center bg-white rounded-lg shadow-lg">
+      <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Focus Flow</h1>
+      <p className="text-xl text-dark-text mt-4 mb-12">What are you learning today?</p>
       
       {error && (
         <motion.div 
@@ -182,10 +182,10 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error }) => {
          <button
             type="button"
             onClick={handleAttachFileClick}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-700 transition-colors duration-200 z-10"
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-200 transition-colors duration-200 z-10"
             aria-label="Attach file to import text"
         >
-            <PlusIcon className="w-6 h-6 text-gray-400" />
+            <PlusIcon className="w-6 h-6 text-gray-500" />
         </button>
         <input 
             type="file"
@@ -198,19 +198,35 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error }) => {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Paste your notes, an article, or any text here to begin..."
-          className="w-full h-36 p-4 pl-14 pr-20 border border-gray-700 rounded-2xl focus:ring-2 focus:ring-primary-light focus:border-primary-light transition duration-200 resize-none text-lg bg-dark-text text-white placeholder:text-gray-400"
+          className="w-full h-64 p-4 pl-14 pr-20 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-400 transition duration-200 resize-none text-lg bg-white text-gray-800 placeholder:text-gray-400"
         />
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           type="submit"
           disabled={!text.trim()}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-primary text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-primary-light transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-light flex items-center justify-center"
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-gradient-to-r from-blue-400 to-purple-500 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:from-blue-500 hover:to-purple-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 flex items-center justify-center"
           aria-label="Start Learning"
         >
             <ArrowRightIcon className="w-6 h-6" />
         </motion.button>
       </form>
+      <div className="mt-8 flex justify-center gap-4">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="py-3 px-6 bg-gradient-to-r from-purple-400 to-purple-800 text-white font-semibold rounded-xl shadow-md hover:from-purple-500 hover:to-purple-900 transition-all duration-300"
+        >
+          Existing lesson
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="py-3 px-6 bg-gradient-to-r from-blue-400 to-blue-800 text-white font-semibold rounded-xl shadow-md hover:from-blue-500 hover:to-blue-900 transition-all duration-300"
+        >
+          Do an assignment
+        </motion.button>
+      </div>
     </div>
   );
 };

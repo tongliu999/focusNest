@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Focus Flow</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes wave-animation {
+        0% { background-position: 0 bottom; }
+        100% { background-position: -1440px bottom; }
+      }
+      .wave-bg {
+        background-image: url('wave.svg');
+        background-repeat: repeat-x;
+        background-position: 0 bottom;
+        animation: wave-animation 20s linear infinite;
+        background-size: 1440px;
+      }
+    </style>
     <script>
       tailwind.config = {
         theme: {
@@ -44,7 +57,7 @@
                 '20%, 80%': { transform: 'translateX(2px)' },
                 '30%, 50%, 70%': { transform: 'translateX(-4px)' },
                 '40%, 60%': { transform: 'translateX(4px)' },
-              }
+              },
             },
             animation: {
               'pulse-strong': 'pulse-strong 2s ease-in-out infinite',
@@ -73,7 +86,7 @@
 }
 </script>
 </head>
-  <body class="bg-gradient-to-br from-violet-50 via-gray-50 to-emerald-50 font-sans">
+  <body class="font-sans bg-blue-900 wave-bg">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
