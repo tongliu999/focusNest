@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus Flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'primary': '#6D28D9', // Deep violet
+              'primary-light': '#8B5CF6',
+              'secondary': '#10B981', // Emerald green
+              'secondary-light': '#34D399',
+              'accent': '#F59E0B', // Amber
+              'light-bg': '#F3F4F6', // Light gray
+              'dark-text': '#1F2937',
+              'light-text': '#6B7280',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            keyframes: {
+              'pulse-strong': {
+                '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+                '50%': { transform: 'scale(1.05)', opacity: '0.9' },
+              },
+              'fade-in': {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              'spin': {
+                'from': { transform: 'rotate(0deg)' },
+                'to': { transform: 'rotate(360deg)' },
+              },
+              'jump': {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-60px)' },
+              },
+              'shake': {
+                '10%, 90%': { transform: 'translateX(-1px)' },
+                '20%, 80%': { transform: 'translateX(2px)' },
+                '30%, 50%, 70%': { transform: 'translateX(-4px)' },
+                '40%, 60%': { transform: 'translateX(4px)' },
+              }
+            },
+            animation: {
+              'pulse-strong': 'pulse-strong 2s ease-in-out infinite',
+              'fade-in': 'fade-in 0.5s ease-out forwards',
+              'spin-slow': 'spin 8s linear infinite',
+              'jump': 'jump 0.5s ease-out',
+              'shake': 'shake 0.82s cubic-bezier(.36,.07,.19,.97) both',
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "lodash": "https://aistudiocdn.com/lodash@^4.17.21"
+  }
+}
+</script>
+</head>
+  <body class="bg-gradient-to-br from-violet-50 via-gray-50 to-emerald-50 font-sans">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
