@@ -20,15 +20,32 @@ const OBSTACLE_SPAWN_RATE = 90; // frames
 
 interface LoadingGameProps {
   message: string;
-  streamedText?: string;
 }
 
-const LoadingGame: React.FC<LoadingGameProps> = ({ message, streamedText }) => {
+const LoadingGame: React.FC<LoadingGameProps> = ({ message }) => {
   const [gameState, setGameState] = useState<'playing' | 'gameOver'>('playing');
   const [player, setPlayer] = useState({ y: PLAYER_GROUND_Y, vy: 0 });
   const [obstacles, setObstacles] = useState<{ id: number; x: number; width: number; height: number }[]>([]);
   const gameLoopRef = useRef<number | null>(null);
   const frameCountRef = useRef(0);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    // Simulate loading progress
+    const timer = setInterval(() => {
+      setProgress((oldProgress) => {
+        if (oldProgress >= 95) {
+          return 95;
+        }
+        const diff = Math.random() * 10;
+        return Math.min(oldProgress + diff, 95);
+      });
+    }, 800);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
 
   const resetGame = useCallback(() => {
     setPlayer({ y: PLAYER_GROUND_Y, vy: 0 });
@@ -117,11 +134,6 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message, streamedText }) => {
     <div className="flex flex-col items-center justify-center p-8 text-center bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/30 w-full max-w-lg">
       <h2 className="text-xl font-bold text-primary mb-2">Loading...</h2>
       
-      {streamedText ? (
-        <pre className="w-full h-40 bg-gray-800 text-white p-4 rounded-lg overflow-y-auto text-left text-sm font-mono whitespace-pre-wrap">
-            <code>{streamedText}</code>
-        </pre>
-      ) : (
         <div 
             className="relative bg-violet-50 rounded-lg overflow-hidden border-2 border-gray-300"
             style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}
@@ -176,7 +188,15 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message, streamedText }) => {
             </div>
             )}
         </div>
-      )}
+
+        <div className="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700 mt-4 overflow-hidden border border-gray-300">
+            <motion.div
+            className="bg-gradient-to-r from-blue-400 to-purple-500 h-full rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.4, ease: 'easeOut' }}
+            />
+        </div>
 
       <p className="mt-4 text-lg font-semibold text-dark-text">{message}</p>
     </div>

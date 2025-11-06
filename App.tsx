@@ -50,7 +50,6 @@ const App: React.FC = () => {
     
     const [journeys, setJourneys] = useState<Journey[]>([]);
     const [journeysLoading, setJourneysLoading] = useState(true);
-    const [liveGeneratedText, setLiveGeneratedText] = useState('');
 
     const [refresher, setRefresher] = useState<{ content: string, questionIndex: number } | null>(null);
     const [timerKey, setTimerKey] = useState(Date.now());
@@ -79,12 +78,10 @@ const App: React.FC = () => {
 
     const handleGenerateJourney = useCallback(async (text: string) => {
         setError(null);
-        setLiveGeneratedText('');
         setAppState('loading');
         try {
-            const journey = await generateLearningJourney(text, (streamedText) => {
-                setLiveGeneratedText(streamedText);
-            });
+            // No longer passing the streaming callback
+            const journey = await generateLearningJourney(text);
 
             if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
                 throw new Error("Generated journey is incomplete or empty.");
@@ -270,7 +267,7 @@ const App: React.FC = () => {
                             onViewJourneys={() => setAppState('dashboard')} 
                         />;
             case 'loading':
-                return <LoadingGame key="loading" message="AI is building your personalized journey..." streamedText={liveGeneratedText} />;
+                return <LoadingGame key="loading" message="AI is building your personalized journey..." />;
             case 'welcome':
                 return <WelcomeModal key="welcome" step={welcomeStep} onNext={() => setWelcomeStep(2)} onStart={handleStartJourney} />;
             case 'finished':
