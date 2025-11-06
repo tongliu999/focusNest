@@ -5,12 +5,13 @@ import { PlusIcon, ArrowRightIcon } from './icons';
 interface UploadStepProps {
   onStart: (text: string) => void;
   error: string | null;
+  onViewJourneys: () => void;
 }
 
 const defaultContent = `A brief history of the internet.`;
 
 
-const UploadStep: React.FC<UploadStepProps> = ({ onStart, error }) => {
+const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys }) => {
   const [text, setText] = useState(defaultContent);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,18 +102,12 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error }) => {
       </form>
       <div className="mt-8 flex justify-center gap-4">
         <motion.button
+          onClick={onViewJourneys}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className="py-3 px-6 bg-gradient-to-r from-purple-400 to-purple-800 text-white font-semibold rounded-xl shadow-md hover:from-purple-500 hover:to-purple-900 transition-all duration-300"
         >
-          Existing lesson
-        </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="py-3 px-6 bg-gradient-to-r from-blue-400 to-blue-800 text-white font-semibold rounded-xl shadow-md hover:from-blue-500 hover:to-blue-900 transition-all duration-300"
-        >
-          Do an assignment
+          View All Journeys
         </motion.button>
       </div>
     </div>

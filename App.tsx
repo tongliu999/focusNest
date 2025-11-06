@@ -1,8 +1,10 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Module, ModuleType } from './types';
 import { generateLearningJourney, generateRefresher } from './services/geminiService';
+import { db } from './services/firebase';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy } from "firebase/firestore";
 
 import UploadStep from './components/UploadStep';
 import LoadingGame from './components/Loader';
@@ -10,13 +12,21 @@ import WelcomeModal from './components/WelcomeModal';
 import JourneyMap from './components/JourneyMap';
 import CompletionScreen from './components/CompletionScreen';
 import PomodoroTimer from './components/PomodoroTimer';
-
+import Dashboard from './components/Dashboard';
 import LearnModule from './components/LearnModule';
 import QuizModule from './components/QuizModule';
 import MatchingGameModule from './components/MatchingGameModule';
 import GameModule from './components/GameModule';
 
-type AppState = 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished';
+type AppState = 'dashboard' | 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished';
+
+export interface Journey {
+    id: string;
+    title: string;
+    modules: Module[];
+    currentModuleIndex: number;
+    createdAt: any;
+}
 
 export interface DuckStats {
   speed: number;
@@ -30,14 +40,18 @@ export const BREAK_DURATION = 5 * 60;
 const JOURNEY_REWARD_COINS = 250;
 const FOCUS_SESSION_REWARD_COINS = 100;
 
-
 const App: React.FC = () => {
-    const [appState, setAppState] = useState<AppState>('upload');
+    const [appState, setAppState] = useState<AppState>('upload'); // Start on the upload screen
     const [modules, setModules] = useState<Module[]>([]);
+    const [journeyTitle, setJourneyTitle] = useState('');
     const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [welcomeStep, setWelcomeStep] = useState(1);
     
+    const [journeys, setJourneys] = useState<Journey[]>([]);
+    const [journeysLoading, setJourneysLoading] = useState(true);
+    const [liveGeneratedText, setLiveGeneratedText] = useState('');
+
     const [refresher, setRefresher] = useState<{ content: string, questionIndex: number } | null>(null);
     const [timerKey, setTimerKey] = useState(Date.now());
     const [duckStats, setDuckStats] = useState<DuckStats>({
@@ -49,43 +63,47 @@ const App: React.FC = () => {
     const [journeyReward, setJourneyReward] = useState(0);
     const [notification, setNotification] = useState<string | null>(null);
 
+    useEffect(() => {
+        const fetchJourneys = async () => {
+            setJourneysLoading(true);
+            const q = query(collection(db, "journeys"), orderBy("createdAt", "desc"));
+            const querySnapshot = await getDocs(q);
+            const fetchedJourneys = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Journey));
+            setJourneys(fetchedJourneys);
+            setJourneysLoading(false);
+        };
+
+        fetchJourneys();
+    }, []);
+
+
     const handleGenerateJourney = useCallback(async (text: string) => {
         setError(null);
+        setLiveGeneratedText('');
         setAppState('loading');
-        console.log("Starting journey generation with text:", text.substring(0, 100) + "..."); 
-    
         try {
-            const journey = await generateLearningJourney(text);
-            console.log("Successfully generated journey:", journey);
-    
-            if (!journey || !journey.modules || journey.modules.length === 0) {
-                console.error("Validation Error: Generated journey is empty or malformed.");
-                throw new Error("Generated journey is empty.");
+            const journey = await generateLearningJourney(text, (streamedText) => {
+                setLiveGeneratedText(streamedText);
+            });
+
+            if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
+                throw new Error("Generated journey is incomplete or empty.");
             }
-    
             setModules(journey.modules);
+            setJourneyTitle(journey.title);
             setCurrentModuleIndex(0);
             setAppState('welcome');
             setWelcomeStep(1);
-    
         } catch (err) {
-            console.error("--- ERROR DURING JOURNEY GENERATION ---");
-            console.error("Timestamp:", new Date().toISOString());
-            console.error("Error object:", err);
-            
-            let errorMessage = 'An unexpected error occurred while loading the journey. Please try again.';
-            if (err instanceof Error) {
-                errorMessage = `Error: ${err.message}. Please check the console for more details.`;
-            }
-            
-            setError(errorMessage);
+            console.error("Error during journey generation:", err);
+            setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
             setAppState('upload');
         }
     }, []);
 
     const handleStartJourney = useCallback(() => {
         setAppState('journey');
-        setTimerKey(Date.now()); // Reset timer when journey starts
+        setTimerKey(Date.now());
     }, []);
 
     const handleNextModule = useCallback(() => {
@@ -93,7 +111,6 @@ const App: React.FC = () => {
         if (currentModuleIndex < modules.length - 1) {
             setCurrentModuleIndex(prev => prev + 1);
         } else {
-            // Journey complete! Award coins.
             setDuckStats(prev => ({ ...prev, coins: prev.coins + JOURNEY_REWARD_COINS }));
             setJourneyReward(JOURNEY_REWARD_COINS);
             setAppState('finished');
@@ -102,7 +119,7 @@ const App: React.FC = () => {
     
     const handleIncorrectAnswer = useCallback(async (module: Module, questionIndex: number) => {
         const question = module.questions?.[questionIndex];
-        if(question) {
+        if (question) {
             const hint = await generateRefresher(module.title, question.question);
             setRefresher({ content: hint, questionIndex });
         }
@@ -112,9 +129,7 @@ const App: React.FC = () => {
         if (appState === 'journey') {
             setDuckStats(prev => ({ ...prev, coins: prev.coins + FOCUS_SESSION_REWARD_COINS }));
             setNotification(`+${FOCUS_SESSION_REWARD_COINS} coins for your focus!`);
-            setTimeout(() => {
-                setNotification(null);
-            }, 3000);
+            setTimeout(() => setNotification(null), 3000);
             setAppState('break');
         } else if (appState === 'break') {
             setAppState('journey');
@@ -126,11 +141,60 @@ const App: React.FC = () => {
     }, []);
 
     const handleReset = useCallback(() => {
-        setAppState('upload');
+        setAppState('dashboard');
         setModules([]);
         setCurrentModuleIndex(0);
         setError(null);
     }, []);
+
+    const handleSaveJourney = async () => {
+        setNotification("Saving journey...");
+
+        try {
+            const q = query(collection(db, "journeys"), where("title", "==", journeyTitle));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                setNotification("A journey with this title already exists!");
+                setTimeout(() => setNotification(null), 3000);
+                return;
+            }
+
+            const newJourneyData = {
+                title: journeyTitle,
+                modules,
+                currentModuleIndex,
+                createdAt: serverTimestamp()
+            };
+            const docRef = await addDoc(collection(db, "journeys"), newJourneyData);
+
+            const newJourneyForState = {
+                ...newJourneyData,
+                id: docRef.id,
+                createdAt: { toDate: () => new Date() }
+            };
+            
+            setJourneys(prev => [newJourneyForState, ...prev]);
+            setNotification("Journey saved successfully!");
+            
+            setTimeout(() => {
+                setAppState('dashboard');
+                setNotification(null);
+            }, 1500);
+
+        } catch (error) {
+            console.error("Error saving journey: ", error);
+            setNotification("Failed to save journey. See console for details.");
+            setTimeout(() => setNotification(null), 4000);
+        }
+    };
+
+    const handleLoadJourney = (modules: Module[], currentIndex: number, title: string) => {
+        setModules(modules);
+        setCurrentModuleIndex(currentIndex);
+        setJourneyTitle(title);
+        setAppState('journey');
+    };
 
     const renderModule = () => {
         const module = modules[currentModuleIndex];
@@ -140,7 +204,7 @@ const App: React.FC = () => {
             case ModuleType.Learn:
                 return <LearnModule module={module} onComplete={handleNextModule} />;
             case ModuleType.Quiz:
-            case ModuleType.Test: // Treat Test the same as Quiz
+            case ModuleType.Test:
                 return <QuizModule 
                             module={module} 
                             onComplete={handleNextModule} 
@@ -154,13 +218,11 @@ const App: React.FC = () => {
                 return <div className="text-center">Unsupported module type. <button onClick={handleNextModule} className="underline">Skip</button></div>;
         }
     };
-    
-    // If we are in the main journey view, render the sidebar layout
+
     if (appState === 'journey' || appState === 'break') {
         return (
             <div className="min-h-screen w-full flex text-dark-text relative">
-                <JourneyMap modules={modules} currentIndex={currentModuleIndex} currentStatus={appState === 'journey' ? 'journey' : 'game'} />
-                
+                <JourneyMap modules={modules} currentIndex={currentModuleIndex} currentStatus={appState === 'journey' ? 'journey' : 'game'} onSave={handleSaveJourney} />
                 <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
                     <header className="w-full p-4 flex justify-end items-center absolute top-0 left-0 z-10">
                          <PomodoroTimer 
@@ -168,6 +230,7 @@ const App: React.FC = () => {
                             mode={appState === 'journey' ? 'focus' : 'break'}
                             onComplete={handleTimerComplete}
                         />
+                         <button onClick={() => setAppState('dashboard')} className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Dashboard</button>
                     </header>
                     <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4 w-full">
                         {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateDuckStats} />}
@@ -180,11 +243,8 @@ const App: React.FC = () => {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 50, scale: 0.5 }}
                             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                            className="fixed bottom-10 right-10 bg-accent text-white font-bold py-3 px-6 rounded-full shadow-xl z-50 flex items-center gap-2"
-                            role="status"
-                            aria-live="polite"
+                            className="fixed bottom-10 right-10 bg-accent text-white font-bold py-3 px-6 rounded-full shadow-xl z-50"
                         >
-                            <span role="img" aria-label="coin">🪙</span>
                             {notification}
                         </motion.div>
                     )}
@@ -193,13 +253,24 @@ const App: React.FC = () => {
         );
     }
     
-    // Otherwise, render the centered, full-screen states
     const renderContent = () => {
          switch (appState) {
+            case 'dashboard':
+                return <Dashboard 
+                            journeys={journeys} 
+                            loading={journeysLoading}
+                            onLoadJourney={handleLoadJourney} 
+                            onStartNewJourney={() => setAppState('upload')} 
+                        />;
             case 'upload':
-                return <UploadStep key="upload" onStart={handleGenerateJourney} error={error} />;
+                return <UploadStep 
+                            key="upload" 
+                            onStart={handleGenerateJourney} 
+                            error={error} 
+                            onViewJourneys={() => setAppState('dashboard')} 
+                        />;
             case 'loading':
-                return <LoadingGame key="loading" message="AI is building your personalized journey..." />;
+                return <LoadingGame key="loading" message="AI is building your personalized journey..." streamedText={liveGeneratedText} />;
             case 'welcome':
                 return <WelcomeModal key="welcome" step={welcomeStep} onNext={() => setWelcomeStep(2)} onStart={handleStartJourney} />;
             case 'finished':

@@ -7,6 +7,7 @@ interface JourneyMapProps {
   modules: Module[];
   currentIndex: number;
   currentStatus: 'journey' | 'game';
+  onSave: () => void;
 }
 
 const getModuleIcon = (moduleType: string) => {
@@ -19,11 +20,14 @@ const getModuleIcon = (moduleType: string) => {
     }
 };
 
-const JourneyMap: React.FC<JourneyMapProps> = ({ modules, currentIndex, currentStatus }) => {
+const JourneyMap: React.FC<JourneyMapProps> = ({ modules, currentIndex, currentStatus, onSave }) => {
   return (
     <aside className="w-80 bg-light-bg p-6 border-r border-gray-200 flex flex-col">
-        <div className="flex items-center mb-8">
+        <div className="flex items-center justify-between mb-8">
             <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Focus Flow</h1>
+            <button onClick={onSave} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Save
+            </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto -mr-4 pr-4">

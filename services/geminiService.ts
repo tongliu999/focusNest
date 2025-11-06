@@ -1,12 +1,9 @@
-import { initializeApp } from "firebase/app";
 import { getAI, getGenerativeModel } from "firebase/ai";
-import { firebaseConfig } from "../firebaseConfig"; // Import the configuration
-
+import { app } from "./firebase"; // Import the initialized app
 import { LearningJourney } from '../types';
 import { Type } from "@google/genai";
 
 // Initialize Firebase with your config
-const app = initializeApp(firebaseConfig);
 const vertexAI = getAI(app);
 
 const learningJourneySchema = {
@@ -14,7 +11,7 @@ const learningJourneySchema = {
     properties: {
         title: {
             type: Type.STRING,
-            description: "A concise, engaging title for the entire learning journey based on the provided text."
+            description: "A creative, engaging, and descriptive title for the entire learning journey. The title should be 3-5 words and accurately reflect the core topic of the provided text. For example, if the text is about photosynthesis, a good title would be 'The Magic of Sunlight' or 'Decoding Plant Power'."
         },
         modules: {
             type: Type.ARRAY,
@@ -82,7 +79,7 @@ const learningJourneySchema = {
     required: ["title", "modules"]
 };
 
-export const generateLearningJourney = async (text: string): Promise<LearningJourney> => {
+export const generateLearningJourney = async (text: string, onUpdate: (text: string) => void): Promise<LearningJourney> => {
     const prompt = `You are an expert instructional designer creating a learning journey for a user with ADHD. Your goal is to transform the provided "Study Material" into an engaging, structured, and visually-appealing learning path.
 
 The output must be a JSON object that strictly follows the provided schema.
@@ -106,18 +103,27 @@ ${text}
 
 Now, generate the complete learning journey JSON object.`;
 
-    const model = getGenerativeModel(vertexAI, {
-        model: "gemini-2.5-flash",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: learningJourneySchema,
+    const model = getGenerativeModel(
+        vertexAI,
+        { // Model parameters
+            model: "gemini-2.5-flash",
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: learningJourneySchema,
+            }
         }
-    });
+    );
 
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContentStream(prompt);
     
-    const jsonResponse = JSON.parse(result.response.text());
-    return jsonResponse as LearningJourney;
+    let accumulatedText = "";
+    for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        accumulatedText += chunkText;
+        onUpdate(accumulatedText); // Call the callback with the updated text
+    }
+
+    return JSON.parse(accumulatedText) as LearningJourney;
 };
 
 export const generateRefresher = async (topic: string, failedQuestion: string): Promise<string> => {
