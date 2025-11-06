@@ -80,7 +80,6 @@ const App: React.FC = () => {
         setError(null);
         setAppState('loading');
         try {
-            // No longer passing the streaming callback
             const journey = await generateLearningJourney(text);
 
             if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
@@ -145,30 +144,35 @@ const App: React.FC = () => {
     }, []);
 
     const handleSaveJourney = async () => {
-        setNotification("Saving journey...");
+        setNotification("Attempting to save journey...");
+        console.log("handleSaveJourney triggered.");
 
         try {
-            const q = query(collection(db, "journeys"), where("title", "==", journeyTitle));
-            const querySnapshot = await getDocs(q);
-
-            if (!querySnapshot.empty) {
-                setNotification("A journey with this title already exists!");
-                setTimeout(() => setNotification(null), 3000);
+            // Check if there is content to save
+            if (!journeyTitle || modules.length === 0) {
+                console.error("Cannot save journey: title or modules are empty.");
+                setNotification("Cannot save empty journey.");
                 return;
             }
 
+            const journeyCollection = collection(db, "journeys");
+            console.log("Firestore collection reference created:", journeyCollection);
+            
             const newJourneyData = {
                 title: journeyTitle,
                 modules,
                 currentModuleIndex,
                 createdAt: serverTimestamp()
             };
-            const docRef = await addDoc(collection(db, "journeys"), newJourneyData);
+            console.log("Data to be saved:", newJourneyData);
 
+            const docRef = await addDoc(journeyCollection, newJourneyData);
+            console.log("SUCCESS! Document written with ID: ", docRef.id);
+            
             const newJourneyForState = {
                 ...newJourneyData,
                 id: docRef.id,
-                createdAt: { toDate: () => new Date() }
+                createdAt: { toDate: () => new Date() } // Simulate server timestamp for immediate UI update
             };
             
             setJourneys(prev => [newJourneyForState, ...prev]);
@@ -180,9 +184,9 @@ const App: React.FC = () => {
             }, 1500);
 
         } catch (error) {
-            console.error("Error saving journey: ", error);
-            setNotification("Failed to save journey. See console for details.");
-            setTimeout(() => setNotification(null), 4000);
+            console.error("FIRESTORE SAVE ERROR:", error);
+            setNotification(`Failed to save journey. See console for details. Error: ${error.message || 'Unknown error'}`);
+            setTimeout(() => setNotification(null), 5000);
         }
     };
 

@@ -1,3 +1,4 @@
+
 import { getAI, getGenerativeModel } from "firebase/ai";
 import { app } from "./firebase"; // Import the initialized app
 import { LearningJourney } from '../types';
@@ -79,7 +80,8 @@ const learningJourneySchema = {
     required: ["title", "modules"]
 };
 
-export const generateLearningJourney = async (text: string, onUpdate: (text: string) => void): Promise<LearningJourney> => {
+// FIX: Removed the onUpdate parameter and switched to non-streaming generateContent
+export const generateLearningJourney = async (text: string): Promise<LearningJourney> => {
     const prompt = `You are an expert instructional designer creating a learning journey for a user with ADHD. Your goal is to transform the provided "Study Material" into an engaging, structured, and visually-appealing learning path.
 
 The output must be a JSON object that strictly follows the provided schema.
@@ -105,8 +107,8 @@ Now, generate the complete learning journey JSON object.`;
 
     const model = getGenerativeModel(
         vertexAI,
-        { // Model parameters
-            model: "gemini-2.5-flash",
+        {
+            model: "gemini-2.5-flash", // Updated model name for clarity
             generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: learningJourneySchema,
@@ -114,16 +116,11 @@ Now, generate the complete learning journey JSON object.`;
         }
     );
 
-    const result = await model.generateContentStream(prompt);
+    // FIX: Switched to the non-streaming generateContent method
+    const result = await model.generateContent(prompt);
     
-    let accumulatedText = "";
-    for await (const chunk of result.stream) {
-        const chunkText = chunk.text();
-        accumulatedText += chunkText;
-        onUpdate(accumulatedText); // Call the callback with the updated text
-    }
-
-    return JSON.parse(accumulatedText) as LearningJourney;
+    const jsonText = result.response.text();
+    return JSON.parse(jsonText) as LearningJourney;
 };
 
 export const generateRefresher = async (topic: string, failedQuestion: string): Promise<string> => {
@@ -131,7 +128,7 @@ export const generateRefresher = async (topic: string, failedQuestion: string): 
     
     Please provide a very simple, encouraging, and easy-to-understand explanation or hint to help them understand the core concept without giving away the direct answer. Use an analogy or a real-world example if possible. Keep it under 50 words.`;
     
-    const model = getGenerativeModel(vertexAI, { model: "gemini-1.5-flash" });
+    const model = getGenerativeModel(vertexAI, { model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     
     return result.response.text();
