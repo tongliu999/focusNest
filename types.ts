@@ -1,7 +1,8 @@
 export enum ModuleType {
   Learn = 'Learn',
   Quiz = 'Quiz',
-  MatchingGame = 'MatchingGame',
+  Test = 'Test',
+  MatchingGame = 'Matching Game',
 }
 
 export interface PracticeQuestion {
@@ -23,7 +24,7 @@ export interface Module {
   summary?: string;
   keyPoints?: string[];
   imagePrompt?: string;
-  // For Quiz modules
+  // For Quiz/Test modules
   questions?: PracticeQuestion[];
   // For MatchingGame modules
   pairs?: MatchingPair[];

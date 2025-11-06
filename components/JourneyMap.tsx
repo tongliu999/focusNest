@@ -1,121 +1,73 @@
-
-
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Module, ModuleType } from '../types';
-// FIX: Removed unused TrophyIcon as ModuleType.Test does not exist.
-import { BookIcon, GameIcon, QuizIcon, CloseIcon, MatchingIcon } from './icons';
+import { Module } from '../types';
+import { LearnIcon, QuizIcon, MatchingGameIcon, TestIcon, GameIcon, LockIcon } from './icons';
 
 interface JourneyMapProps {
   modules: Module[];
   currentIndex: number;
-  currentStatus: 'journey' | 'game' | 'module_complete';
-  onClose: () => void;
+  currentStatus: 'journey' | 'game';
 }
 
-const getStepClass = (isActive: boolean, isCompleted: boolean) => {
-    if (isActive) return 'bg-primary text-white ring-4 ring-primary-light/50';
-    if (isCompleted) return 'bg-secondary text-white';
-    return 'bg-gray-200 text-gray-500';
-}
-
-const getIconForModule = (module: Module) => {
-    switch(module.type) {
-        case ModuleType.Learn: return <BookIcon className="w-6 h-6" />;
-        case ModuleType.Quiz: return <QuizIcon className="w-6 h-6" />;
-        // FIX: Removed case for ModuleType.Test as it does not exist in the enum.
-        case ModuleType.MatchingGame: return <MatchingIcon className="w-6 h-6" />;
+const getModuleIcon = (moduleType: string) => {
+    switch(moduleType) {
+        case 'Learn': return <LearnIcon className="w-6 h-6" />;
+        case 'Quiz': return <QuizIcon className="w-6 h-6" />;
+        case 'Matching Game': return <MatchingGameIcon className="w-6 h-6" />;
+        case 'Test': return <TestIcon className="w-6 h-6" />;
         default: return null;
     }
 };
 
-const JourneyMap: React.FC<JourneyMapProps> = ({ modules, currentIndex, currentStatus, onClose }) => {
+const JourneyMap: React.FC<JourneyMapProps> = ({ modules, currentIndex, currentStatus }) => {
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-black/50 z-40"
-        aria-hidden="true"
-      />
-      <motion.div
-        initial={{ x: '-100%' }}
-        animate={{ x: '0%' }}
-        exit={{ x: '-100%' }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed top-0 left-0 bottom-0 w-80 bg-light-bg p-6 z-50 shadow-2xl flex flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="journey-map-title"
-      >
-        <div className="flex items-center justify-between mb-8">
-            <h2 id="journey-map-title" className="text-2xl font-bold text-primary">Focus Flow</h2>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 transition" aria-label="Close menu">
-                <CloseIcon className="w-6 h-6 text-dark-text" />
-            </button>
+    <aside className="w-80 bg-light-bg p-6 border-r border-gray-200 flex flex-col">
+        <div className="flex items-center mb-8">
+            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Focus Flow</h1>
         </div>
 
-        <div className="flex-1 overflow-y-auto -ml-2 pr-2">
-            <div className="relative pl-6">
-                {/* Vertical Connector Line */}
-                <div className="absolute top-5 bottom-5 left-[30px] w-0.5 bg-gray-200"></div>
-
+        <nav className="flex-1 overflow-y-auto -mr-4 pr-4">
+            <ul className="space-y-2">
                 {modules.map((module, index) => {
-                    const isModuleCompleted = index < currentIndex;
-                    const isModuleActive = index === currentIndex && (currentStatus === 'journey' || currentStatus === 'module_complete');
+                    const isCompleted = index < currentIndex;
+                    const isCurrent = index === currentIndex;
+                    const isLocked = index > currentIndex;
                     
-                    const nextModule = modules[index + 1];
-                    // FIX: Removed ModuleType.Test from the array as it does not exist.
-                    const isFollowedByGame = !nextModule || [ModuleType.Quiz, ModuleType.MatchingGame].includes(module.type);
-                    
-                    const isGameActiveAfterModule = index === currentIndex && currentStatus === 'game';
-                    const isGameCompleted = index < currentIndex;
+                    let statusStyles = "bg-white text-dark-text";
+                    if (isCompleted) {
+                        statusStyles = "bg-green-100 text-green-800 border-l-4 border-green-500";
+                    } else if (isCurrent) {
+                        statusStyles = "bg-blue-100 text-blue-800 border-l-4 border-blue-500 font-bold shadow-md";
+                    } else if (isLocked) {
+                        statusStyles = "bg-gray-100 text-gray-500 opacity-70";
+                    }
 
                     return (
-                        <React.Fragment key={index}>
-                            <div className="flex items-start mb-4 relative">
-                                <div className="absolute left-[-6px] top-0 z-10">
-                                    <motion.div
-                                        animate={isModuleActive ? { scale: 1.1 } : { scale: 1 }}
-                                        transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-colors duration-500 flex-shrink-0 ${getStepClass(isModuleActive, isModuleCompleted)}`}
-                                    >
-                                        {getIconForModule(module)}
-                                    </motion.div>
-                                </div>
-                                <div className="ml-16 pt-2">
-                                    <p className={`font-bold transition-colors duration-300 ${isModuleActive || isModuleCompleted ? 'text-dark-text' : 'text-light-text'}`}>{module.title}</p>
-                                    <p className={`text-sm transition-colors duration-300 ${isModuleActive || isModuleCompleted ? 'text-primary' : 'text-light-text'}`}>{module.type}</p>
-                                </div>
+                        <motion.li 
+                            key={index}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className={`p-4 rounded-lg flex items-center space-x-4 transition-all duration-300 ${statusStyles}`}
+                        >
+                            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-500 text-white' : isCurrent ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+                                {isLocked ? <LockIcon className="w-5 h-5"/> : getModuleIcon(module.type)}
                             </div>
-
-                            {isFollowedByGame && index < modules.length - 1 && (
-                                <div className="flex items-start mb-4 h-20 relative">
-                                    <div className="absolute left-[-6px] top-1/2 -translate-y-1/2 z-10">
-                                        <motion.div
-                                            animate={isGameActiveAfterModule ? { scale: 1.1 } : { scale: 1 }}
-                                            transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                                            className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-colors duration-500 flex-shrink-0 ${getStepClass(isGameActiveAfterModule, isGameCompleted)}`}
-                                        >
-                                            <GameIcon className="w-6 h-6" />
-                                        </motion.div>
-                                    </div>
-                                    <div className="ml-16 pt-5">
-                                        <p className={`font-bold transition-colors duration-300 ${isGameActiveAfterModule || isGameCompleted ? 'text-dark-text' : 'text-light-text'}`}>Brain Break</p>
-                                        <p className={`text-sm transition-colors duration-300 ${isGameActiveAfterModule || isGameCompleted ? 'text-accent' : 'text-light-text'}`}>Mini-Game</p>
-                                    </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold">{module.title}</p>
+                                <p className="text-xs text-light-text">{module.type}</p>
+                            </div>
+                            {isCurrent && (
+                                <div className={`ml-auto text-xs font-semibold px-2 py-1 rounded-full ${currentStatus === 'journey' ? 'bg-primary-light/20 text-primary' : 'bg-accent/20 text-accent'}`}>
+                                    {currentStatus === 'journey' ? 'Focus' : 'Break'}
                                 </div>
                             )}
-                        </React.Fragment>
+                        </motion.li>
                     );
                 })}
-            </div>
-        </div>
-      </motion.div>
-    </>
+            </ul>
+        </nav>
+    </aside>
   );
 };
 

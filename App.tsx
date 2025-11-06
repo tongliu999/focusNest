@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Module, ModuleType } from './types';
 import { generateLearningJourney, generateRefresher } from './services/geminiService';
@@ -15,9 +15,6 @@ import LearnModule from './components/LearnModule';
 import QuizModule from './components/QuizModule';
 import MatchingGameModule from './components/MatchingGameModule';
 import GameModule from './components/GameModule';
-
-import { MenuIcon } from './components/icons';
-
 
 type AppState = 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished';
 
@@ -40,7 +37,6 @@ const App: React.FC = () => {
     const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [welcomeStep, setWelcomeStep] = useState(1);
-    const [isJourneyMapOpen, setJourneyMapOpen] = useState(false);
     
     const [refresher, setRefresher] = useState<{ content: string, questionIndex: number } | null>(null);
     const [timerKey, setTimerKey] = useState(Date.now());
@@ -55,19 +51,34 @@ const App: React.FC = () => {
 
     const handleGenerateJourney = useCallback(async (text: string) => {
         setError(null);
+        setAppState('loading');
+        console.log("Starting journey generation with text:", text.substring(0, 100) + "..."); 
+    
         try {
-            // The loading state is skipped as the journey is now hardcoded and loads instantly.
             const journey = await generateLearningJourney(text);
-            if (!journey || journey.length === 0) {
-              throw new Error("Hardcoded journey is empty, which should not happen.");
+            console.log("Successfully generated journey:", journey);
+    
+            if (!journey || !journey.modules || journey.modules.length === 0) {
+                console.error("Validation Error: Generated journey is empty or malformed.");
+                throw new Error("Generated journey is empty.");
             }
-            setModules(journey);
+    
+            setModules(journey.modules);
             setCurrentModuleIndex(0);
             setAppState('welcome');
             setWelcomeStep(1);
+    
         } catch (err) {
-            console.error(err);
-            setError('An unexpected error occurred while loading the journey. Please refresh the page.');
+            console.error("--- ERROR DURING JOURNEY GENERATION ---");
+            console.error("Timestamp:", new Date().toISOString());
+            console.error("Error object:", err);
+            
+            let errorMessage = 'An unexpected error occurred while loading the journey. Please try again.';
+            if (err instanceof Error) {
+                errorMessage = `Error: ${err.message}. Please check the console for more details.`;
+            }
+            
+            setError(errorMessage);
             setAppState('upload');
         }
     }, []);
@@ -119,7 +130,6 @@ const App: React.FC = () => {
         setModules([]);
         setCurrentModuleIndex(0);
         setError(null);
-        // Duck stats like coins and upgrades are NOT reset to allow for persistent progression.
     }, []);
 
     const renderModule = () => {
@@ -130,6 +140,7 @@ const App: React.FC = () => {
             case ModuleType.Learn:
                 return <LearnModule module={module} onComplete={handleNextModule} />;
             case ModuleType.Quiz:
+            case ModuleType.Test: // Treat Test the same as Quiz
                 return <QuizModule 
                             module={module} 
                             onComplete={handleNextModule} 
@@ -143,64 +154,65 @@ const App: React.FC = () => {
                 return <div className="text-center">Unsupported module type. <button onClick={handleNextModule} className="underline">Skip</button></div>;
         }
     };
-
+    
+    // If we are in the main journey view, render the sidebar layout
+    if (appState === 'journey' || appState === 'break') {
+        return (
+            <div className="min-h-screen w-full flex text-dark-text relative">
+                <JourneyMap modules={modules} currentIndex={currentModuleIndex} currentStatus={appState === 'journey' ? 'journey' : 'game'} />
+                
+                <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+                    <header className="w-full p-4 flex justify-end items-center absolute top-0 left-0 z-10">
+                         <PomodoroTimer 
+                            key={timerKey}
+                            mode={appState === 'journey' ? 'focus' : 'break'}
+                            onComplete={handleTimerComplete}
+                        />
+                    </header>
+                    <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4 w-full">
+                        {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateDuckStats} />}
+                    </main>
+                </div>
+                 <AnimatePresence>
+                   {notification && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 50, scale: 0.5 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 50, scale: 0.5 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                            className="fixed bottom-10 right-10 bg-accent text-white font-bold py-3 px-6 rounded-full shadow-xl z-50 flex items-center gap-2"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            <span role="img" aria-label="coin">🪙</span>
+                            {notification}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        );
+    }
+    
+    // Otherwise, render the centered, full-screen states
     const renderContent = () => {
-        switch (appState) {
+         switch (appState) {
             case 'upload':
                 return <UploadStep key="upload" onStart={handleGenerateJourney} error={error} />;
             case 'loading':
                 return <LoadingGame key="loading" message="AI is building your personalized journey..." />;
             case 'welcome':
                 return <WelcomeModal key="welcome" step={welcomeStep} onNext={() => setWelcomeStep(2)} onStart={handleStartJourney} />;
-            case 'journey':
-            case 'break':
-                return (
-                    <motion.div key="journey" className="w-full h-full flex flex-col" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <header className="w-full p-4 flex justify-between items-center fixed top-0 left-0 z-10">
-                            <button onClick={() => setJourneyMapOpen(true)} className="p-2 rounded-full hover:bg-gray-200/50 transition" aria-label="Open Journey Map">
-                                <MenuIcon className="w-6 h-6 text-dark-text" />
-                            </button>
-                            <PomodoroTimer 
-                                key={timerKey}
-                                mode={appState === 'journey' ? 'focus' : 'break'}
-                                onComplete={handleTimerComplete}
-                            />
-                        </header>
-                        <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4">
-                            {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateDuckStats} />}
-                        </main>
-                        <AnimatePresence>
-                           {isJourneyMapOpen && <JourneyMap modules={modules} currentIndex={currentModuleIndex} currentStatus={appState === 'journey' ? 'journey' : 'game'} onClose={() => setJourneyMapOpen(false)} />}
-                        </AnimatePresence>
-                    </motion.div>
-                );
             case 'finished':
                 return <CompletionScreen key="finished" onRestart={handleReset} reward={journeyReward} />;
             default:
                 return null;
         }
-    };
-    
+    }
+
     return (
         <div className="min-h-screen w-full flex items-center justify-center p-4 text-dark-text relative">
             <AnimatePresence mode="wait">
                 {renderContent()}
-            </AnimatePresence>
-            <AnimatePresence>
-               {notification && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 50, scale: 0.5 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 50, scale: 0.5 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                        className="fixed bottom-10 right-10 bg-accent text-white font-bold py-3 px-6 rounded-full shadow-xl z-50 flex items-center gap-2"
-                        role="status"
-                        aria-live="polite"
-                    >
-                        <span role="img" aria-label="coin">🪙</span>
-                        {notification}
-                    </motion.div>
-                )}
             </AnimatePresence>
         </div>
     );
