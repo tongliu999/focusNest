@@ -351,178 +351,211 @@ const normalizeJourney = (j: LearningJourney): LearningJourney => {
  *  3) Assemble + normalize (enforce word limits)
  * ------------------------------------------------------------
  */
+// DROP-IN REPLACEMENT
 export const generateLearningJourney = async (
-  text: string
-): Promise<LearningJourney> => {
-  // 1) PLAN
-  const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
-    {
-      generationConfig: {
-        ...BASE_JSON_CONFIG,
-        responseSchema: journeyPlanSchema as any,
-        temperature: 0.35,
+    text: string,
+    opts: {
+      maxModules?: number;                // default 8
+      includeTest?: boolean;              // default true
+      allowMatching?: boolean;            // default true
+      minLearnBeforeInteractive?: number; // default 2
+      titleHint?: string;                 // optional branding/title steer
+      concurrency?: number;               // default 4 (parallel calls)
+    } = {}
+  ): Promise<LearningJourney> => {
+    const {
+      maxModules = 8,
+      includeTest = true,
+      allowMatching = true,
+      minLearnBeforeInteractive = 2,
+      titleHint = "",
+      concurrency = 4,
+    } = opts;
+  
+    // 1) PLAN (tiny)
+    const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
+      {
+        generationConfig: {
+          ...BASE_JSON_CONFIG,
+          responseSchema: journeyPlanSchema as any,
+          temperature: 0.35,
+        },
       },
-    },
-    `
-Create a compact learning journey PLAN for the provided study material.
-
-RULES:
-- Start with 2–3 "Learn" modules.
-- Then alternate small groups of "Learn" with an interactive module ("Quiz" or "Matching Game").
-- End with one "Test" module.
-- 6–10 modules total.
-- Output ONLY JSON matching { "title", "plan": [ { "type", "title", "focus?" } ] }.
-
-Study Material:
----
-${text}
----
-`.trim(),
-    { title: "", plan: [] }
-  );
-
-  // Safety net: ensure at least a minimal structure
-  const planList = (plan.plan || []).slice(0, 10);
-  if (!planList.length) {
-    planList.push(
-      { type: "Learn", title: "Core Concepts" },
-      { type: "Quiz", title: "Quick Check" },
-      { type: "Test", title: "Final Test" }
+      `
+  Create a compact learning journey PLAN for the provided study material.
+  
+  RULES:
+  - Start with ${minLearnBeforeInteractive} "Learn" modules.
+  - Then alternate small groups of "Learn" with an interactive module (${allowMatching ? `"Quiz" or "Matching Game"` : `"Quiz"`}).
+  - ${includeTest ? "End with one \"Test\" module (3–4 questions)." : "Do NOT include a final \"Test\" module."}
+  - 6–10 modules total, but cap at ${maxModules}.
+  - Title hint (optional): ${titleHint || "n/a"}
+  - Output ONLY JSON: { "title", "plan": [ { "type", "title", "focus?" } ] }.
+  
+  Study Material:
+  ---
+  ${text}
+  ---
+  `.trim(),
+      { title: "", plan: [] }
     );
-  }
-
-  // 2) PER-MODULE GENERATION
-  const modules: any[] = [];
-  for (const stub of planList) {
-    const t = stub.type;
-    if (t === "Learn") {
-      const mod = await generateJson<any>(
-        {
-          generationConfig: {
-            ...BASE_JSON_CONFIG,
-            responseSchema: learnModuleSchema as any,
-            temperature: 0.45,
-          },
-        },
-        `
-Return ONLY JSON for a single "Learn" module with:
-{ "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
-
-WORD LIMITS:
-- summary ≤ 60 words
-- each keyPoints item ≤ 12 words
-- imagePrompt ≤ 25 words
-
-Title: ${stub.title}
-Focus (optional): ${stub.focus || ""}
-
-Keep it tightly focused on one concept from the study material below.
----
-${text}
----
-`.trim(),
-        { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
+  
+    // Normalize/guard the plan
+    let planList = (plan.plan || []).slice(0, maxModules);
+    if (!allowMatching) {
+      planList = planList.map(p => p.type === "Matching Game" ? { ...p, type: "Quiz" } : p);
+    }
+    if (!includeTest) {
+      planList = planList.filter(p => p.type !== "Test");
+      if (planList.length && planList[planList.length - 1].type === "Learn") {
+        planList.push({ type: "Quiz", title: "Wrap-up Quiz" } as any);
+        planList = planList.slice(0, maxModules);
+      }
+    }
+    if (!planList.length) {
+      planList.push(
+        { type: "Learn", title: "Core Concepts" } as any,
+        { type: "Quiz", title: "Quick Check" } as any,
+        ...(includeTest ? [{ type: "Test", title: "Final Test" } as any] : [])
       );
-      modules.push(mod);
-    } else if (t === "Quiz") {
-      const mod = await generateJson<any>(
-        {
-          generationConfig: {
-            ...BASE_JSON_CONFIG,
-            responseSchema: quizModuleSchema as any,
-            temperature: 0.45,
+    }
+  
+    // 2) PER-MODULE generation — PARALLEL with concurrency cap
+    const modules = await mapWithLimit(planList, concurrency, async (stub) => {
+      if (stub.type === "Learn") {
+        return await generateJson<any>(
+          {
+            generationConfig: {
+              ...BASE_JSON_CONFIG,
+              responseSchema: learnModuleSchema as any,
+              temperature: 0.45,
+            },
           },
-        },
-        `
-Return ONLY JSON for a single "Quiz" module with:
-{ "title", "type":"Quiz", "questions": [ 1–2 MCQs ] }.
-
-Each question MUST have:
-- exactly 4 "options"
-- "correctAnswerIndex"
-- "explanation" ≤ 25 words
-
-Title: ${stub.title}
-Focus (optional): ${stub.focus || ""}
-
-MCQs must be based on the study material below.
----
-${text}
----
-`.trim(),
-        { title: stub.title, type: "Quiz", questions: [] }
-      );
-      modules.push(mod);
-    } else if (t === "Matching Game") {
-      const mod = await generateJson<any>(
-        {
-          generationConfig: {
-            ...BASE_JSON_CONFIG,
-            responseSchema: matchingModuleSchema as any,
-            temperature: 0.45,
+          `
+  Return ONLY JSON for one "Learn" module:
+  { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
+  
+  WORD LIMITS:
+  - summary ≤ 60 words
+  - each keyPoints item ≤ 12 words
+  - imagePrompt ≤ 25 words
+  
+  Title: ${stub.title}
+  Focus (optional): ${stub.focus || ""}
+  
+  Ground strictly in this content:
+  ---
+  ${text}
+  ---
+  `.trim(),
+          { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
+        );
+      }
+  
+      if (stub.type === "Quiz") {
+        return await generateJson<any>(
+          {
+            generationConfig: {
+              ...BASE_JSON_CONFIG,
+              responseSchema: quizModuleSchema as any,
+              temperature: 0.45,
+            },
           },
-        },
-        `
-Return ONLY JSON for a single "Matching Game" module with:
-{ "title", "type":"Matching Game", "instructions", "pairs": 3–4 items }.
-
-- "instructions" ≤ 25 words
-- Each pair: { "term", "definition" (≤ 20 words) }
-
-Title: ${stub.title}
-Focus (optional): ${stub.focus || ""}
-
-Terms/definitions must come from the study material below.
----
-${text}
----
-`.trim(),
-        { title: stub.title, type: "Matching Game", instructions: "", pairs: [] }
-      );
-      modules.push(mod);
-    } else if (t === "Test") {
-      const mod = await generateJson<any>(
-        {
-          generationConfig: {
-            ...BASE_JSON_CONFIG,
-            responseSchema: testModuleSchema as any,
-            temperature: 0.45,
+          `
+  Return ONLY JSON for one "Quiz" module:
+  { "title", "type":"Quiz", "questions": [ 1–2 MCQs ] }.
+  
+  Each MCQ MUST have:
+  - exactly 4 "options"
+  - "correctAnswerIndex"
+  - "explanation" ≤ 25 words
+  
+  Title: ${stub.title}
+  Focus (optional): ${stub.focus || ""}
+  
+  Base questions ONLY on:
+  ---
+  ${text}
+  ---
+  `.trim(),
+          { title: stub.title, type: "Quiz", questions: [] }
+        );
+      }
+  
+      if (stub.type === "Matching Game" && allowMatching) {
+        return await generateJson<any>(
+          {
+            generationConfig: {
+              ...BASE_JSON_CONFIG,
+              responseSchema: matchingModuleSchema as any,
+              temperature: 0.45,
+            },
           },
-        },
-        `
-Return ONLY JSON for a single "Test" module with:
-{ "title", "type":"Test", "questions": [ 3–4 MCQs ] }.
-
-Each question MUST have:
-- exactly 4 "options"
-- "correctAnswerIndex"
-- "explanation" ≤ 25 words
-
-Title: ${stub.title}
-Focus (optional): ${stub.focus || ""}
-
-Design MCQs to assess the breadth of the study material below.
----
-${text}
----
-`.trim(),
-        { title: stub.title, type: "Test", questions: [] }
-      );
-      modules.push(mod);
-    } else if (t === "Assignment") {
-      // Keep minimal "Assignment" (if ever used in plan)
-      modules.push({
+          `
+  Return ONLY JSON for one "Matching Game" module:
+  { "title", "type":"Matching Game", "instructions", "pairs": 3–4 items }.
+  
+  - instructions ≤ 25 words
+  - Each pair: { "term", "definition" (≤ 20 words) }
+  
+  Title: ${stub.title}
+  Focus (optional): ${stub.focus || ""}
+  
+  Draw terms/defs ONLY from:
+  ---
+  ${text}
+  ---
+  `.trim(),
+          { title: stub.title, type: "Matching Game", instructions: "", pairs: [] }
+        );
+      }
+  
+      if (stub.type === "Test" && includeTest) {
+        return await generateJson<any>(
+          {
+            generationConfig: {
+              ...BASE_JSON_CONFIG,
+              responseSchema: testModuleSchema as any,
+              temperature: 0.45,
+            },
+          },
+          `
+  Return ONLY JSON for one "Test" module:
+  { "title", "type":"Test", "questions": [ 3–4 MCQs ] }.
+  
+  Each MCQ MUST have:
+  - exactly 4 "options"
+  - "correctAnswerIndex"
+  - "explanation" ≤ 25 words
+  
+  Title: ${stub.title}
+  Focus (optional): ${stub.focus || ""}
+  
+  Assess breadth of:
+  ---
+  ${text}
+  ---
+  `.trim(),
+          { title: stub.title, type: "Test", questions: [] }
+        );
+      }
+  
+      // Fallback for unexpected types
+      return {
         title: stub.title,
         type: "Assignment",
-        questions: [{ question: (stub.focus || "Answer the prompt in your own words.").trim() }],
-      });
-    }
-  }
-
-  // 3) Assemble + normalize
-  const journey = normalizeJourney({ title: plan.title || "", modules } as LearningJourney);
-  return journey;
-};
+        questions: [{ question: (stub.focus || "Answer the prompt clearly.").trim() }],
+      };
+    });
+  
+    // 3) Assemble + enforce word limits
+    return normalizeJourney({
+      title: plan.title || titleHint || "Learning Journey",
+      modules,
+    } as LearningJourney);
+  };
+  
+  
 
 /**
  * ------------------------------------------------------------
@@ -651,76 +684,148 @@ ${JSON.stringify(t.questions)}
  * ------------------------------------------------------------
  */
 export const generateAssignmentJourney = async (
-  text: string
-): Promise<LearningJourney> => {
-  // Keep your existing single-pass if you want; or reuse plan path.
-  // Here we reuse the chunked generator with a plan tuned to Learn+Assignment.
-  const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
-    {
-      generationConfig: {
-        ...BASE_JSON_CONFIG,
-        responseSchema: journeyPlanSchema as any,
-        temperature: 0.35,
-      },
-    },
-    `
-Create a compact PLAN for an assignment-driven journey.
-
-RULES:
-- For each question in the assignment, create a "Learn" then an "Assignment" module.
-- 4–12 modules total depending on question count.
-- Output ONLY JSON matching { "title", "plan": [ { "type", "title", "focus?" } ] }.
-
-Assignment:
----
-${text}
----
-`.trim(),
-    { title: "", plan: [] }
-  );
-
-  const modules: any[] = [];
-  for (const stub of (plan.plan || []).slice(0, 12)) {
-    if (stub.type === "Learn") {
-      const mod = await generateJson<any>(
-        {
-          generationConfig: {
-            ...BASE_JSON_CONFIG,
-            responseSchema: learnModuleSchema as any,
-            temperature: 0.45,
-          },
+    text: string,
+    opts: {
+      maxModules?: number;                 // cap total modules (default 12)
+      minLearnBeforeAssignment?: number;   // # Learn modules before first Assignment (default 1)
+      titleHint?: string;                  // optional title steer
+      concurrency?: number;                // parallel calls to the model (default 6)
+    } = {}
+  ): Promise<LearningJourney> => {
+    const {
+      maxModules = 12,
+      minLearnBeforeAssignment = 1,
+      titleHint = "",
+      concurrency = 6,
+    } = opts;
+  
+    // 1) PLAN (tiny, schema-bound)
+    // Ask the model to extract questions and lay out an alternating Learn/Assignment sequence.
+    const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
+      {
+        generationConfig: {
+          ...BASE_JSON_CONFIG,
+          responseSchema: journeyPlanSchema as any,
+          temperature: 0.35,
         },
-        `
-Return ONLY JSON for one "Learn" module with:
-{ "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
-
-WORD LIMITS:
-- summary ≤ 60 words
-- each keyPoints item ≤ 12 words
-- imagePrompt ≤ 25 words
-
-Title: ${stub.title}
-Focus: ${stub.focus || ""}
-
-Ground in this assignment:
----
-${text}
----
-`.trim(),
-        { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
-      );
-      modules.push(mod);
-    } else if (stub.type === "Assignment") {
-      modules.push({
+      },
+      `
+  Create a compact PLAN for an assignment-driven learning journey.
+  
+  GOAL:
+  - For EACH distinct question/instruction in the assignment, produce:
+    1) a "Learn" module stub (title + focus on what must be taught),
+    2) followed by an "Assignment" module stub (title + focus containing the EXACT question text).
+  
+  RULES:
+  - Start with ${minLearnBeforeAssignment} "Learn" module(s) if needed to cover core prerequisites.
+  - Alternate "Learn" → "Assignment" for each question thereafter.
+  - 4–12 modules total, but cap at ${maxModules}.
+  - Output ONLY JSON matching:
+    {
+      "title": string,
+      "plan": [ { "type": "Learn"|"Assignment", "title": string, "focus"?: string } ]
+    }
+  
+  Assignment (use only this content):
+  ---
+  ${text}
+  ---
+  `.trim(),
+      { title: "", plan: [] }
+    );
+  
+    // Normalize/guard the plan
+    let planList = (plan.plan || []).slice(0, maxModules);
+  
+    if (!planList.length) {
+      // Minimal fallback: one Learn + one Assignment
+      planList = [
+        { type: "Learn", title: "Core Concepts", focus: "" } as any,
+        { type: "Assignment", title: "Question 1", focus: "Answer the prompt clearly." } as any,
+      ];
+    }
+  
+    // Ensure we strictly alternate L→A after the initial prereq learns (best-effort tidy)
+    const sanitized: {type: string; title: string; focus?: string}[] = [];
+    let preLearn = Math.max(0, minLearnBeforeAssignment);
+    for (const stub of planList) {
+      if (preLearn > 0 && stub.type === "Learn") {
+        sanitized.push(stub);
+        preLearn--;
+        continue;
+      }
+      if (!sanitized.length || sanitized[sanitized.length - 1].type === "Assignment") {
+        sanitized.push(stub.type === "Assignment" ? { ...stub, type: "Learn" } : stub);
+      } else {
+        sanitized.push(stub.type === "Learn" ? { ...stub, type: "Assignment" } : stub);
+      }
+    }
+    planList = sanitized.slice(0, maxModules);
+  
+    // 2) PER-MODULE generation — PARALLEL with concurrency cap
+    // Only "Learn" modules need a model call; "Assignment" modules are constructed directly.
+    const modules = await mapWithLimit(planList, concurrency, async (stub) => {
+      if (stub.type === "Learn") {
+        return await generateJson<any>(
+          {
+            generationConfig: {
+              ...BASE_JSON_CONFIG,
+              responseSchema: learnModuleSchema as any,
+              temperature: 0.45,
+            },
+          },
+          `
+  Return ONLY JSON for one "Learn" module:
+  { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
+  
+  WORD LIMITS:
+  - summary ≤ 60 words
+  - each keyPoints item ≤ 12 words
+  - imagePrompt ≤ 25 words
+  
+  Title: ${stub.title}
+  Focus (teach these for the upcoming assignment question):
+  ${stub.focus || ""}
+  
+  Ground strictly in the assignment content below:
+  ---
+  ${text}
+  ---
+  `.trim(),
+          { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
+        );
+      }
+  
+      // Assignment modules: no MCQ fields — only a single question object.
+      if (stub.type === "Assignment") {
+        return {
+          title: stub.title,
+          type: "Assignment",
+          questions: [
+            {
+              question: (stub.focus || "Answer the prompt in your own words.").trim(),
+            },
+          ],
+        };
+      }
+  
+      // Fallback (unexpected types): coerce to Assignment
+      return {
         title: stub.title,
         type: "Assignment",
-        questions: [{ question: (stub.focus || "Answer the prompt clearly.").trim() }],
-      });
-    }
-  }
-
-  return normalizeJourney({ title: plan.title || "Assignment Journey", modules } as LearningJourney);
-};
+        questions: [
+          { question: (stub.focus || "Answer the prompt clearly.").trim() },
+        ],
+      };
+    });
+  
+    // 3) Assemble + enforce word limits (summary/keyPoints/imagePrompt/…)
+    return normalizeJourney({
+      title: plan.title || titleHint || "Assignment Journey",
+      modules,
+    } as LearningJourney);
+  };
 
 /**
  * ------------------------------------------------------------

@@ -85,7 +85,7 @@ const App: React.FC = () => {
         setError(null);
         setAppState('loading');
         try {
-            const journey = await generateLearningJourney(text);
+            const journey = await generateLearningJourney(text, { concurrency: 8 });
 
             if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
                 throw new Error("Generated journey is incomplete or empty.");
