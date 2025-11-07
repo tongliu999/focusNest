@@ -106,3 +106,31 @@ export const GoogleIcon: React.FC<IconProps> = ({ className }) => (
         <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.502,44,30.85,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
     </svg>
 );
+
+export const LoaderIcon: React.FC<IconProps> = ({ className }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="xMidYMid"
+    >
+        <circle
+            cx="50"
+            cy="50"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="10"
+            r="35"
+            strokeDasharray="164.93361431346415 56.97787143782138"
+        >
+            <animateTransform
+                attributeName="transform"
+                type="rotate"
+                repeatCount="indefinite"
+                dur="1s"
+                values="0 50 50;360 50 50"
+                keyTimes="0;1"
+            ></animateTransform>
+        </circle>
+    </svg>
+);

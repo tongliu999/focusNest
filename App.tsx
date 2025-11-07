@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Module, ModuleType } from './types';
-import { generateLearningJourney, generateRefresher } from './services/geminiService';
+import { generateLearningJourney, generateRefresher, generateAssignmentJourney, generatePdf, checkAnswer } from './services/geminiService';
 import { db } from './services/firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy } from "firebase/firestore";
 
@@ -17,8 +17,10 @@ import LearnModule from './components/LearnModule';
 import QuizModule from './components/QuizModule';
 import MatchingGameModule from './components/MatchingGameModule';
 import GameModule from './components/GameModule';
+import AssignmentUpload from './components/AssignmentUpload';
+import AssignmentModule from './components/AssignmentModule';
 
-type AppState = 'dashboard' | 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished';
+type AppState = 'dashboard' | 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished' | 'assignmentUpload';
 
 export interface Journey {
     id: string;
@@ -41,7 +43,7 @@ const JOURNEY_REWARD_COINS = 250;
 const FOCUS_SESSION_REWARD_COINS = 100;
 
 const App: React.FC = () => {
-    const [appState, setAppState] = useState<AppState>('upload'); // Start on the upload screen
+    const [appState, setAppState] = useState<AppState>('upload');
     const [modules, setModules] = useState<Module[]>([]);
     const [journeyTitle, setJourneyTitle] = useState('');
     const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
@@ -61,6 +63,9 @@ const App: React.FC = () => {
     });
     const [journeyReward, setJourneyReward] = useState(0);
     const [notification, setNotification] = useState<string | null>(null);
+    const [answers, setAnswers] = useState<{ [key: string]: string }>({});
+    const [feedback, setFeedback] = useState<string | null>(null);
+    const [checking, setChecking] = useState(false);
 
     useEffect(() => {
         const fetchJourneys = async () => {
@@ -97,6 +102,26 @@ const App: React.FC = () => {
         }
     }, []);
 
+    const handleGenerateAssignmentJourney = useCallback(async (text: string) => {
+        setError(null);
+        setAppState('loading');
+        try {
+            const journey = await generateAssignmentJourney(text);
+
+            if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
+                throw new Error("Generated journey is incomplete or empty.");
+            }
+            setModules(journey.modules);
+            setJourneyTitle(journey.title);
+            setCurrentModuleIndex(0);
+            setAppState('journey');
+        } catch (err) {
+            console.error("Error during journey generation:", err);
+            setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+            setAppState('assignmentUpload');
+        }
+    }, []);
+
     const handleStartJourney = useCallback(() => {
         setAppState('journey');
         setTimerKey(Date.now());
@@ -104,6 +129,7 @@ const App: React.FC = () => {
 
     const handleNextModule = useCallback(() => {
         setRefresher(null);
+        setFeedback(null);
         if (currentModuleIndex < modules.length - 1) {
             setCurrentModuleIndex(prev => prev + 1);
         } else {
@@ -112,6 +138,21 @@ const App: React.FC = () => {
             setAppState('finished');
         }
     }, [currentModuleIndex, modules.length]);
+
+    const handleAnswerSubmit = async (answer: string) => {
+        const question = modules[currentModuleIndex].questions?.[0]?.question;
+        if (question) {
+            setChecking(true);
+            const { correct, feedback } = await checkAnswer(question, answer);
+            setChecking(false);
+            if (correct) {
+                setAnswers(prev => ({ ...prev, [question]: answer }));
+                handleNextModule();
+            } else {
+                setFeedback(feedback);
+            }
+        }
+    };
     
     const handleIncorrectAnswer = useCallback(async (module: Module, questionIndex: number) => {
         const question = module.questions?.[questionIndex];
@@ -141,6 +182,8 @@ const App: React.FC = () => {
         setModules([]);
         setCurrentModuleIndex(0);
         setError(null);
+        setAnswers({});
+        setFeedback(null);
     }, []);
 
     const handleSaveJourney = async () => {
@@ -197,6 +240,10 @@ const App: React.FC = () => {
         setAppState('journey');
     };
 
+    const handleStartAssignment = () => {
+        setAppState('assignmentUpload');
+    };
+
     const renderModule = () => {
         const module = modules[currentModuleIndex];
         if (!module) return null;
@@ -215,6 +262,8 @@ const App: React.FC = () => {
                         />;
             case ModuleType.MatchingGame:
                 return <MatchingGameModule module={module} onComplete={handleNextModule} />;
+            case ModuleType.Assignment:
+                return <AssignmentModule module={module} onComplete={handleAnswerSubmit} feedback={feedback} checking={checking} />;
             default:
                 return <div className="text-center">Unsupported module type. <button onClick={handleNextModule} className="underline">Skip</button></div>;
         }
@@ -261,21 +310,36 @@ const App: React.FC = () => {
                             journeys={journeys} 
                             loading={journeysLoading}
                             onLoadJourney={handleLoadJourney} 
-                            onStartNewJourney={() => setAppState('upload')} 
+                            onStartNewJourney={() => setAppState('upload')}
+                            onStartAssignment={handleStartAssignment}
                         />;
             case 'upload':
                 return <UploadStep 
                             key="upload" 
                             onStart={handleGenerateJourney} 
                             error={error} 
-                            onViewJourneys={() => setAppState('dashboard')} 
+                            onViewJourneys={() => setAppState('dashboard')}
+                            onStartAssignment={handleStartAssignment} 
+                        />;
+            case 'assignmentUpload':
+                return <AssignmentUpload
+                            key="assignmentUpload"
+                            onStart={handleGenerateAssignmentJourney}
+                            error={error}
+                            onViewJourneys={() => setAppState('dashboard')}
+                            onCreateJourney={() => setAppState('upload')}
                         />;
             case 'loading':
                 return <LoadingGame key="loading" message="AI is building your personalized journey..." />;
             case 'welcome':
                 return <WelcomeModal key="welcome" step={welcomeStep} onNext={() => setWelcomeStep(2)} onStart={handleStartJourney} />;
             case 'finished':
-                return <CompletionScreen key="finished" onRestart={handleReset} reward={journeyReward} />;
+                return <CompletionScreen 
+                            key="finished" 
+                            onRestart={handleReset} 
+                            reward={journeyReward} 
+                            onDownloadPdf={() => generatePdf(answers)} 
+                        />;
             default:
                 return null;
         }

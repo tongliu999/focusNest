@@ -8,9 +8,10 @@ interface DashboardProps {
     loading: boolean;
     onLoadJourney: (modules: Module[], currentIndex: number, title: string) => void;
     onStartNewJourney: () => void;
+    onStartAssignment: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney }) => {
+const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment }) => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">
@@ -23,12 +24,20 @@ const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney,
         <div className="p-4 sm:p-8 w-full max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold">Public Journeys</h1>
-                <button 
-                    onClick={onStartNewJourney} 
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                >
-                    + Create New
-                </button>
+                <div>
+                    <button 
+                        onClick={onStartNewJourney} 
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                    >
+                        + Create New
+                    </button>
+                    <button 
+                        onClick={onStartAssignment}
+                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2"
+                    >
+                        Do an Assignment!
+                    </button>
+                </div>
             </div>
             {journeys.length === 0 ? (
                 <p>No public journeys available yet. Why not create the first one?</p>

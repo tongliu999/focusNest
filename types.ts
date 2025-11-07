@@ -3,6 +3,7 @@ export enum ModuleType {
   Quiz = 'Quiz',
   Test = 'Test',
   MatchingGame = 'Matching Game',
+  Assignment = 'Assignment',
 }
 
 export interface PracticeQuestion {

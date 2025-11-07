@@ -3,17 +3,18 @@ import { motion } from 'framer-motion';
 import { PlusIcon, ArrowRightIcon, LoaderIcon } from './icons';
 import { getTextFromImage, getTextFromPdf } from '../services/geminiService';
 
-interface UploadStepProps {
+interface AssignmentUploadProps {
   onStart: (text: string) => void;
   error: string | null;
   onViewJourneys: () => void;
-  onStartAssignment: () => void;
+  onCreateJourney: () => void;
 }
 
-const defaultContent = `A brief history of the internet.`;
+const defaultContent = `Please solve the following problems:
+1. What is the capital of France?
+2. What is 2 + 2?`;
 
-
-const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys, onStartAssignment }) => {
+const AssignmentUpload: React.FC<AssignmentUploadProps> = ({ onStart, error, onViewJourneys, onCreateJourney }) => {
   const [text, setText] = useState(defaultContent);
   const [processing, setProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,17 +57,15 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
       }
       setProcessing(false);
     }
-    // Clear the input value to allow re-uploading the same file
     if (e.target) {
       e.target.value = '';
     }
   };
 
-
   return (
     <div className="w-full max-w-2xl mx-auto p-8 text-center bg-white rounded-lg shadow-lg">
-      <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Focus Flow</h1>
-      <p className="text-xl text-dark-text mt-4 mb-12">What are you learning today?</p>
+      <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-800">Assignment Helper</h1>
+      <p className="text-xl text-dark-text mt-4 mb-12">Upload your assignment to get started.</p>
       
       {error && (
         <motion.div 
@@ -99,7 +98,7 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste your notes, an article, or any text here to begin..."
+          placeholder="Paste your assignment here to begin..."
           className="w-full h-64 p-4 pl-14 pr-20 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-400 transition duration-200 resize-none text-lg bg-white text-gray-800 placeholder:text-gray-400"
         />
         <motion.button
@@ -107,8 +106,8 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
           whileTap={{ scale: 0.95 }}
           type="submit"
           disabled={!text.trim()}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-gradient-to-r from-blue-400 to-purple-500 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:from-blue-500 hover:to-purple-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 flex items-center justify-center"
-          aria-label="Start Learning"
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 bg-gradient-to-r from-green-400 to-green-800 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:from-green-500 hover:to-green-900 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 flex items-center justify-center"
+          aria-label="Start Assignment"
         >
             <ArrowRightIcon className="w-6 h-6" />
         </motion.button>
@@ -123,16 +122,16 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
           View All Journeys
         </motion.button>
         <motion.button
-          onClick={onStartAssignment}
+          onClick={onCreateJourney}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="py-3 px-6 bg-gradient-to-r from-green-400 to-green-800 text-white font-semibold rounded-xl shadow-md hover:from-green-500 hover:to-green-900 transition-all duration-300"
+          className="py-3 px-6 bg-gradient-to-r from-blue-400 to-blue-800 text-white font-semibold rounded-xl shadow-md hover:from-blue-500 hover:to-blue-900 transition-all duration-300"
         >
-          Do an Assignment!
+          Create Journey
         </motion.button>
       </div>
     </div>
   );
 };
 
-export default UploadStep;
+export default AssignmentUpload;
