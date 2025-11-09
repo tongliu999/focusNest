@@ -678,154 +678,225 @@ ${JSON.stringify(t.questions)}
   return journey;
 };
 
+// --- helpers ---------------------------------------------------------------
+
+const normalizeWhitespace = (s: string) =>
+  s.replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/[ \t]{2,}/g, " ").trim();
+
 /**
- * ------------------------------------------------------------
- *  Alternate single-pass Assignment Journey (Learn + Assignment)
- * ------------------------------------------------------------
+ * Extracts distinct questions from free-form assignment text.
+ * Heuristics supported:
+ *  - Numbered: "1) ...", "1. ...", "(1) ...", "Q1: ..."
+ *  - Bullets: "-", "*", "•"
+ *  - Standalone lines that end in '?'
+ * Multi-line questions are joined until the next starter is found.
  */
+function extractQuestions(text: string): string[] {
+  const lines = normalizeWhitespace(text).split("\n").map(l => l.trim()).filter(Boolean);
+
+  // A "starter" indicates the beginning of a new question
+  const starter = /^(?:\(?\d+\)|\d+[.)]|Q\d+[:.-]|[-*•])\s+/i;
+
+  const questions: string[] = [];
+  let buf: string[] = [];
+
+  const flush = () => {
+    const q = buf.join(" ").trim();
+    if (q) questions.push(q);
+    buf = [];
+  };
+
+  for (const line of lines) {
+    if (starter.test(line)) {
+      // New question starts
+      flush();
+      buf.push(line.replace(starter, "").trim());
+    } else {
+      // Keep accumulating into current question
+      if (!buf.length) {
+        // If no current buffer, treat a line ending with '?' as standalone question
+        if (/\?\s*$/.test(line)) {
+          questions.push(line.trim());
+        } else {
+          // Probably introduction or instructions; ignore
+        }
+      } else {
+        buf.push(line);
+      }
+    }
+  }
+  flush();
+
+  // Fallback: if nothing matched, try to split by sentences with '?'
+  if (questions.length === 0) {
+    const sentenceQs = normalizeWhitespace(text)
+      .split(/(?<=\?)\s+/)
+      .map(s => s.trim())
+      .filter(s => s.endsWith("?"));
+    if (sentenceQs.length) return sentenceQs;
+
+    // Absolute fallback: whole text as one "question"
+    return [normalizeWhitespace(text)];
+  }
+
+  // Tidy: remove duplicated trailing punctuation and extra spaces
+  return questions.map(q =>
+    q.replace(/\s{2,}/g, " ").replace(/\?{2,}$/g, "?").trim()
+  );
+}
+
+// Builds a safe number of (Learn, Assignment) pairs given caps.
+function buildPlanStubs(
+  questions: string[],
+  maxModules: number,
+  minLearnBeforeAssignment: number
+): { type: "Learn" | "Assignment"; title: string; focus?: string }[] {
+
+  // How many pairs can we fit after the prereq learns?
+  const slotsForPairs = Math.max(0, maxModules - Math.max(0, minLearnBeforeAssignment));
+  const pairCount = Math.max(0, Math.floor(slotsForPairs / 2));
+  const useQuestions = questions.slice(0, pairCount);
+
+  const stubs: { type: "Learn" | "Assignment"; title: string; focus?: string }[] = [];
+
+  // Add prereq learns first
+  for (let i = 0; i < minLearnBeforeAssignment && stubs.length < maxModules; i++) {
+    stubs.push({
+      type: "Learn",
+      title: i === 0 ? "Core Prerequisites" : `Core Prerequisites ${i + 1}`,
+      focus: "Teach the essentials needed to attempt the first question.",
+    });
+  }
+
+  // Then alternate per question
+  useQuestions.forEach((q, idx) => {
+    if (stubs.length + 2 > maxModules) return;
+    const n = idx + 1;
+    stubs.push({
+      type: "Learn",
+      title: `Learn: Concepts for Q${n}`,
+      focus: `Teach exactly what is required to answer: ${q}`,
+    });
+    stubs.push({
+      type: "Assignment",
+      title: `Q${n}`,
+      focus: q, // keep the exact question text here
+    });
+  });
+
+  // Minimal safety: if we somehow still have nothing, create a single pair
+  if (stubs.length === 0) {
+    stubs.push(
+      { type: "Learn", title: "Core Concepts", focus: "" },
+      { type: "Assignment", title: "Question 1", focus: "Answer the prompt clearly." },
+    );
+  }
+
+  return stubs.slice(0, maxModules);
+}
+
+// --- main function ---------------------------------------------------------
+
 export const generateAssignmentJourney = async (
-    text: string,
-    opts: {
-      maxModules?: number;                 // cap total modules (default 12)
-      minLearnBeforeAssignment?: number;   // # Learn modules before first Assignment (default 1)
-      titleHint?: string;                  // optional title steer
-      concurrency?: number;                // parallel calls to the model (default 6)
-    } = {}
-  ): Promise<LearningJourney> => {
-    const {
-      maxModules = 12,
-      minLearnBeforeAssignment = 1,
-      titleHint = "",
-      concurrency = 6,
-    } = opts;
-  
-    // 1) PLAN (tiny, schema-bound)
-    // Ask the model to extract questions and lay out an alternating Learn/Assignment sequence.
-    const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
+  text: string,
+  opts: {
+    maxModules?: number;                 // cap total modules (default 12)
+    minLearnBeforeAssignment?: number;   // # Learn modules before first Assignment (default 1)
+    titleHint?: string;                  // optional title steer
+    concurrency?: number;                // parallel calls to the model (default 6)
+  } = {}
+): Promise<LearningJourney> => {
+  const {
+    maxModules = 12,
+    minLearnBeforeAssignment = 1,
+    titleHint = "",
+    concurrency = 6,
+  } = opts;
+
+  // 0) Extract questions deterministically from the raw text
+  const questions = extractQuestions(text);
+
+  // 1) Build a deterministic plan (no model reliance for separation)
+  const planList = buildPlanStubs(questions, maxModules, minLearnBeforeAssignment);
+
+  // 1b) (Optional) Generate a compact journey title with the model, else fallback
+  let journeyTitle = titleHint || "Assignment Journey";
+  try {
+    const planTitle = await generateJson<{ title: string }>(
       {
         generationConfig: {
           ...BASE_JSON_CONFIG,
-          responseSchema: journeyPlanSchema as any,
-          temperature: 0.35,
+          responseSchema: { type: "object", properties: { title: { type: "string" }}, required: ["title"] } as any,
+          temperature: 0.2,
         },
       },
       `
-  Create a compact PLAN for an assignment-driven learning journey.
-  
-  GOAL:
-  - For EACH distinct question/instruction in the assignment, produce:
-    1) a "Learn" module stub (title + focus on what must be taught),
-    2) followed by an "Assignment" module stub (title + focus containing the EXACT question text).
-  
-  RULES:
-  - Start with ${minLearnBeforeAssignment} "Learn" module(s) if needed to cover core prerequisites.
-  - Alternate "Learn" → "Assignment" for each question thereafter.
-  - 4–12 modules total, but cap at ${maxModules}.
-  - Output ONLY JSON matching:
-    {
-      "title": string,
-      "plan": [ { "type": "Learn"|"Assignment", "title": string, "focus"?: string } ]
-    }
-  
-  Assignment (use only this content):
-  ---
-  ${text}
-  ---
-  `.trim(),
-      { title: "", plan: [] }
+Return ONLY JSON: { "title": string ≤ 60 chars }.
+Title should summarize the assignment topic succinctly.
+
+Assignment:
+---
+${text}
+---
+`.trim(),
+      { title: journeyTitle }
     );
-  
-    // Normalize/guard the plan
-    let planList = (plan.plan || []).slice(0, maxModules);
-  
-    if (!planList.length) {
-      // Minimal fallback: one Learn + one Assignment
-      planList = [
-        { type: "Learn", title: "Core Concepts", focus: "" } as any,
-        { type: "Assignment", title: "Question 1", focus: "Answer the prompt clearly." } as any,
-      ];
-    }
-  
-    // Ensure we strictly alternate L→A after the initial prereq learns (best-effort tidy)
-    const sanitized: {type: string; title: string; focus?: string}[] = [];
-    let preLearn = Math.max(0, minLearnBeforeAssignment);
-    for (const stub of planList) {
-      if (preLearn > 0 && stub.type === "Learn") {
-        sanitized.push(stub);
-        preLearn--;
-        continue;
-      }
-      if (!sanitized.length || sanitized[sanitized.length - 1].type === "Assignment") {
-        sanitized.push(stub.type === "Assignment" ? { ...stub, type: "Learn" } : stub);
-      } else {
-        sanitized.push(stub.type === "Learn" ? { ...stub, type: "Assignment" } : stub);
-      }
-    }
-    planList = sanitized.slice(0, maxModules);
-  
-    // 2) PER-MODULE generation — PARALLEL with concurrency cap
-    // Only "Learn" modules need a model call; "Assignment" modules are constructed directly.
-    const modules = await mapWithLimit(planList, concurrency, async (stub) => {
-      if (stub.type === "Learn") {
-        return await generateJson<any>(
-          {
-            generationConfig: {
-              ...BASE_JSON_CONFIG,
-              responseSchema: learnModuleSchema as any,
-              temperature: 0.45,
-            },
+    if (planTitle?.title) journeyTitle = planTitle.title.slice(0, 60);
+  } catch {
+    // keep fallback title
+  }
+
+  // 2) PER-MODULE generation — PARALLEL with concurrency cap
+  const modules = await mapWithLimit(planList, concurrency, async (stub) => {
+    if (stub.type === "Learn") {
+      return await generateJson<any>(
+        {
+          generationConfig: {
+            ...BASE_JSON_CONFIG,
+            responseSchema: learnModuleSchema as any,
+            temperature: 0.45,
           },
-          `
-  Return ONLY JSON for one "Learn" module:
-  { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
-  
-  WORD LIMITS:
-  - summary ≤ 60 words
-  - each keyPoints item ≤ 12 words
-  - imagePrompt ≤ 25 words
-  
-  Title: ${stub.title}
-  Focus (teach these for the upcoming assignment question):
-  ${stub.focus || ""}
-  
-  Ground strictly in the assignment content below:
-  ---
-  ${text}
-  ---
-  `.trim(),
-          { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
-        );
-      }
-  
-      // Assignment modules: no MCQ fields — only a single question object.
-      if (stub.type === "Assignment") {
-        return {
-          title: stub.title,
-          type: "Assignment",
-          questions: [
-            {
-              question: (stub.focus || "Answer the prompt in your own words.").trim(),
-            },
-          ],
-        };
-      }
-  
-      // Fallback (unexpected types): coerce to Assignment
-      return {
-        title: stub.title,
-        type: "Assignment",
-        questions: [
-          { question: (stub.focus || "Answer the prompt clearly.").trim() },
-        ],
-      };
-    });
-  
-    // 3) Assemble + enforce word limits (summary/keyPoints/imagePrompt/…)
-    return normalizeJourney({
-      title: plan.title || titleHint || "Assignment Journey",
-      modules,
-    } as LearningJourney);
-  };
+        },
+        `
+Return ONLY JSON for one "Learn" module:
+{ "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
+
+WORD LIMITS:
+- summary ≤ 60 words
+- each keyPoints item ≤ 12 words
+- imagePrompt ≤ 25 words
+
+Title: ${stub.title}
+Focus (teach these for the upcoming assignment question):
+${stub.focus || ""}
+
+Ground strictly in the assignment content below:
+---
+${text}
+---
+`.trim(),
+        { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
+      );
+    }
+
+    // Assignment modules: a single free-response question each, using the exact extracted text
+    return {
+      title: stub.title,
+      type: "Assignment",
+      questions: [
+        {
+          question: (stub.focus || "Answer the prompt in your own words.").trim(),
+        },
+      ],
+    };
+  });
+
+  // 3) Assemble + enforce word limits (summary/keyPoints/imagePrompt/…)
+  return normalizeJourney({
+    title: journeyTitle,
+    modules,
+  } as LearningJourney);
+};
 
 /**
  * ------------------------------------------------------------

@@ -5,9 +5,10 @@ import { motion } from 'framer-motion';
 interface CompletionScreenProps {
   onRestart: () => void;
   reward: number;
+  onDownloadPdf: () => void;
 }
 
-const CompletionScreen: React.FC<CompletionScreenProps> = ({ onRestart, reward }) => {
+const CompletionScreen: React.FC<CompletionScreenProps> = ({ onRestart, reward, onDownloadPdf }) => {
   return (
     <div className="w-full max-w-2xl mx-auto p-8 bg-white rounded-2xl shadow-lg text-center animate-fade-in">
       <motion.div
@@ -32,14 +33,24 @@ const CompletionScreen: React.FC<CompletionScreenProps> = ({ onRestart, reward }
         </p>
       </motion.div>
 
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={onRestart}
-        className="py-3 px-8 bg-primary text-white font-semibold rounded-xl shadow-md hover:bg-primary-light transition-colors duration-300"
-      >
-        Start a New Journey
-      </motion.button>
+      <div className="flex justify-center gap-4">
+        <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onDownloadPdf}
+            className="py-3 px-8 bg-secondary text-white font-semibold rounded-xl shadow-md hover:bg-secondary-light transition-colors duration-300"
+        >
+            Download PDF
+        </motion.button>
+        <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onRestart}
+            className="py-3 px-8 bg-primary text-white font-semibold rounded-xl shadow-md hover:bg-primary-light transition-colors duration-300"
+        >
+            Start a New Journey
+        </motion.button>
+      </div>
     </div>
   );
 };

@@ -2,9 +2,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Module, ModuleType } from './types';
-import { generateLearningJourney, generateRefresher, generateAssignmentJourney, generatePdf, checkAnswer } from './services/geminiService';
+import { generateLearningJourney, generateRefresher, generateAssignmentJourney, checkAnswer } from './services/geminiService';
 import { db } from './services/firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy } from "firebase/firestore";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 import UploadStep from './components/UploadStep';
 import LoadingGame from './components/Loader';
@@ -85,7 +87,7 @@ const App: React.FC = () => {
         setError(null);
         setAppState('loading');
         try {
-            const journey = await generateLearningJourney(text, { concurrency: 8 });
+            const journey = await generateLearningJourney(text);
 
             if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
                 throw new Error("Generated journey is incomplete or empty.");
@@ -191,7 +193,6 @@ const App: React.FC = () => {
         console.log("handleSaveJourney triggered.");
 
         try {
-            // Check if there is content to save
             if (!journeyTitle || modules.length === 0) {
                 console.error("Cannot save journey: title or modules are empty.");
                 setNotification("Cannot save empty journey.");
@@ -199,7 +200,6 @@ const App: React.FC = () => {
             }
 
             const journeyCollection = collection(db, "journeys");
-            console.log("Firestore collection reference created:", journeyCollection);
             
             const newJourneyData = {
                 title: journeyTitle,
@@ -207,15 +207,13 @@ const App: React.FC = () => {
                 currentModuleIndex,
                 createdAt: serverTimestamp()
             };
-            console.log("Data to be saved:", newJourneyData);
 
             const docRef = await addDoc(journeyCollection, newJourneyData);
-            console.log("SUCCESS! Document written with ID: ", docRef.id);
             
             const newJourneyForState = {
                 ...newJourneyData,
                 id: docRef.id,
-                createdAt: { toDate: () => new Date() } // Simulate server timestamp for immediate UI update
+                createdAt: { toDate: () => new Date() }
             };
             
             setJourneys(prev => [newJourneyForState, ...prev]);
@@ -242,6 +240,51 @@ const App: React.FC = () => {
 
     const handleStartAssignment = () => {
         setAppState('assignmentUpload');
+    };
+
+    const generatePdf = async (answers: { [key: string]: string }) => {
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const content = document.createElement('div');
+        content.style.width = '210mm';
+        content.style.padding = '20mm';
+        content.style.backgroundColor = 'white';
+        content.style.color = '#1F2937';
+        content.style.fontFamily = 'Inter, sans-serif';
+
+        let html = '<h1 style="font-size: 28px; font-weight: 700; color: #6D28D9; margin-bottom: 24px;">Assignment Answers</h1>';
+
+        for (const question in answers) {
+            html += `
+                <div style="margin-bottom: 20px; page-break-inside: avoid;">
+                    <h2 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">${question}</h2>
+                    <p style="font-size: 14px; color: #6B7280; white-space: pre-wrap; line-height: 1.6;">${answers[question]}</p>
+                </div>
+            `;
+        }
+        
+        content.innerHTML = html;
+        document.body.appendChild(content);
+
+        const canvas = await html2canvas(content, { scale: 2 });
+        document.body.removeChild(content);
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        let heightLeft = pdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        heightLeft -= pdf.internal.pageSize.getHeight();
+
+        while (heightLeft > 0) {
+            position = heightLeft - pdfHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+            heightLeft -= pdf.internal.pageSize.getHeight();
+        }
+        
+        pdf.save('assignment-answers.pdf');
     };
 
     const renderModule = () => {
