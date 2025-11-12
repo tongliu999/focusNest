@@ -21,6 +21,7 @@ import MatchingGameModule from './components/MatchingGameModule';
 import GameModule from './components/GameModule';
 import AssignmentUpload from './components/AssignmentUpload';
 import AssignmentModule from './components/AssignmentModule';
+import { ChevronRightIcon } from './components/icons';
 
 type AppState = 'dashboard' | 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished' | 'assignmentUpload';
 
@@ -29,6 +30,7 @@ export interface Journey {
     title: string;
     modules: Module[];
     currentModuleIndex: number;
+    highestModuleIndex?: number;
     createdAt: any;
 }
 
@@ -49,8 +51,10 @@ const App: React.FC = () => {
     const [modules, setModules] = useState<Module[]>([]);
     const [journeyTitle, setJourneyTitle] = useState('');
     const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
+    const [highestModuleIndex, setHighestModuleIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [welcomeStep, setWelcomeStep] = useState(1);
+    const [isSidebarVisible, setIsSidebarVisible] = useState(true);
     
     const [journeys, setJourneys] = useState<Journey[]>([]);
     const [journeysLoading, setJourneysLoading] = useState(true);
@@ -95,6 +99,7 @@ const App: React.FC = () => {
             setModules(journey.modules);
             setJourneyTitle(journey.title);
             setCurrentModuleIndex(0);
+            setHighestModuleIndex(0);
             setAppState('welcome');
             setWelcomeStep(1);
         } catch (err) {
@@ -116,6 +121,7 @@ const App: React.FC = () => {
             setModules(journey.modules);
             setJourneyTitle(journey.title);
             setCurrentModuleIndex(0);
+            setHighestModuleIndex(0);
             setAppState('journey');
         } catch (err) {
             console.error("Error during journey generation:", err);
@@ -133,13 +139,17 @@ const App: React.FC = () => {
         setRefresher(null);
         setFeedback(null);
         if (currentModuleIndex < modules.length - 1) {
-            setCurrentModuleIndex(prev => prev + 1);
+            const newIndex = currentModuleIndex + 1;
+            setCurrentModuleIndex(newIndex);
+            if (newIndex > highestModuleIndex) {
+                setHighestModuleIndex(newIndex);
+            }
         } else {
             setDuckStats(prev => ({ ...prev, coins: prev.coins + JOURNEY_REWARD_COINS }));
             setJourneyReward(JOURNEY_REWARD_COINS);
             setAppState('finished');
         }
-    }, [currentModuleIndex, modules.length]);
+    }, [currentModuleIndex, modules.length, highestModuleIndex]);
 
     const handleAnswerSubmit = async (answer: string) => {
         const question = modules[currentModuleIndex].questions?.[0]?.question;
@@ -183,6 +193,7 @@ const App: React.FC = () => {
         setAppState('dashboard');
         setModules([]);
         setCurrentModuleIndex(0);
+        setHighestModuleIndex(0);
         setError(null);
         setAnswers({});
         setFeedback(null);
@@ -205,6 +216,7 @@ const App: React.FC = () => {
                 title: journeyTitle,
                 modules,
                 currentModuleIndex,
+                highestModuleIndex,
                 createdAt: serverTimestamp()
             };
 
@@ -231,9 +243,10 @@ const App: React.FC = () => {
         }
     };
 
-    const handleLoadJourney = (modules: Module[], currentIndex: number, title: string) => {
+    const handleLoadJourney = (modules: Module[], currentIndex: number, title: string, highestIndex?: number) => {
         setModules(modules);
         setCurrentModuleIndex(currentIndex);
+        setHighestModuleIndex(highestIndex || currentIndex);
         setJourneyTitle(title);
         setAppState('journey');
     };
@@ -242,6 +255,12 @@ const App: React.FC = () => {
         setAppState('assignmentUpload');
     };
 
+    const handleModuleSelect = (index: number) => {
+        if (index <= highestModuleIndex) {
+            setCurrentModuleIndex(index);
+        }
+    };
+    
     const generatePdf = async (answers: { [key: string]: string }) => {
         const pdf = new jsPDF('p', 'mm', 'a4');
         const content = document.createElement('div');
@@ -315,9 +334,27 @@ const App: React.FC = () => {
     if (appState === 'journey' || appState === 'break') {
         return (
             <div className="min-h-screen w-full flex text-dark-text relative">
-                <JourneyMap modules={modules} currentIndex={currentModuleIndex} currentStatus={appState === 'journey' ? 'journey' : 'game'} onSave={handleSaveJourney} />
+                <JourneyMap 
+                    modules={modules} 
+                    currentIndex={currentModuleIndex} 
+                    highestIndex={highestModuleIndex}
+                    currentStatus={appState === 'journey' ? 'journey' : 'game'} 
+                    onSave={handleSaveJourney}
+                    onModuleSelect={handleModuleSelect}
+                    isVisible={isSidebarVisible}
+                    onToggleVisibility={() => setIsSidebarVisible(prev => !prev)}
+                />
                 <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
-                    <header className="w-full p-4 flex justify-end items-center absolute top-0 left-0 z-10">
+                    <header className="w-full p-4 flex justify-between items-center absolute top-0 left-0 z-10">
+                         {!isSidebarVisible && (
+                            <button 
+                                onClick={() => setIsSidebarVisible(true)}
+                                className="p-2 rounded-md hover:bg-gray-200"
+                            >
+                                <ChevronRightIcon className="w-6 h-6" />
+                            </button>
+                         )}
+                         <div className="flex-grow" />
                          <PomodoroTimer 
                             key={timerKey}
                             mode={appState === 'journey' ? 'focus' : 'break'}
@@ -326,7 +363,7 @@ const App: React.FC = () => {
                          <button onClick={() => setAppState('dashboard')} className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Dashboard</button>
                     </header>
                     <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4 w-full">
-                        {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateDuckStats} />}
+                        {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateStats} />}
                     </main>
                 </div>
                  <AnimatePresence>
@@ -349,10 +386,11 @@ const App: React.FC = () => {
     const renderContent = () => {
          switch (appState) {
             case 'dashboard':
+                const enrichedJourneys = journeys.map(j => ({ ...j, highestModuleIndex: j.highestModuleIndex || j.currentModuleIndex }));
                 return <Dashboard 
-                            journeys={journeys} 
+                            journeys={enrichedJourneys} 
                             loading={journeysLoading}
-                            onLoadJourney={handleLoadJourney} 
+                            onLoadJourney={(modules, index, title, highestIndex) => handleLoadJourney(modules, index, title, highestIndex)} 
                             onStartNewJourney={() => setAppState('upload')}
                             onStartAssignment={handleStartAssignment}
                         />;

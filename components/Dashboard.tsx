@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { Module } from '../types';
-import { Journey } from '../App'; // Import the Journey type from App
+import { Journey } from '../App'; 
 
 interface DashboardProps {
-    journeys: Journey[];
+    journeys: (Journey & { highestModuleIndex?: number })[];
     loading: boolean;
-    onLoadJourney: (modules: Module[], currentIndex: number, title: string) => void;
+    onLoadJourney: (modules: Module[], currentIndex: number, title: string, highestIndex?: number) => void;
     onStartNewJourney: () => void;
     onStartAssignment: () => void;
 }
@@ -46,7 +46,7 @@ const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney,
                     {journeys.map(journey => (
                         <li key={journey.id} 
                             className="p-4 bg-white rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-                            onClick={() => onLoadJourney(journey.modules, journey.currentModuleIndex, journey.title)}>
+                            onClick={() => onLoadJourney(journey.modules, journey.currentModuleIndex, journey.title, journey.highestModuleIndex)}>
                             <h2 className="text-xl font-semibold">{journey.title}</h2>
                             <p className="text-gray-600">Progress: Module {journey.currentModuleIndex + 1} of {journey.modules.length}</p>
                             <p className="text-xs text-gray-400 mt-2">Created on: {journey.createdAt?.toDate ? new Date(journey.createdAt.toDate()).toLocaleDateString() : 'Just now'}</p>
