@@ -9,9 +9,11 @@ interface DashboardProps {
     onLoadJourney: (modules: Module[], currentIndex: number, title: string, highestIndex?: number) => void;
     onStartNewJourney: () => void;
     onStartAssignment: () => void;
+    onResumeJourney: () => void;
+    isJourneyActive: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment }) => {
+const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment, onResumeJourney, isJourneyActive }) => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">
@@ -25,6 +27,14 @@ const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney,
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold">Public Journeys</h1>
                 <div>
+                    {isJourneyActive && (
+                        <button 
+                            onClick={onResumeJourney}
+                            className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded mr-2"
+                        >
+                            Resume Current Journey
+                        </button>
+                    )}
                     <button 
                         onClick={onStartNewJourney} 
                         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"

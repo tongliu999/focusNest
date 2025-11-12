@@ -55,6 +55,7 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [welcomeStep, setWelcomeStep] = useState(1);
     const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+    const [isJourneyActive, setIsJourneyActive] = useState(false);
     
     const [journeys, setJourneys] = useState<Journey[]>([]);
     const [journeysLoading, setJourneysLoading] = useState(true);
@@ -100,6 +101,7 @@ const App: React.FC = () => {
             setJourneyTitle(journey.title);
             setCurrentModuleIndex(0);
             setHighestModuleIndex(0);
+            setIsJourneyActive(true);
             setAppState('welcome');
             setWelcomeStep(1);
         } catch (err) {
@@ -122,6 +124,7 @@ const App: React.FC = () => {
             setJourneyTitle(journey.title);
             setCurrentModuleIndex(0);
             setHighestModuleIndex(0);
+            setIsJourneyActive(true);
             setAppState('journey');
         } catch (err) {
             console.error("Error during journey generation:", err);
@@ -147,6 +150,7 @@ const App: React.FC = () => {
         } else {
             setDuckStats(prev => ({ ...prev, coins: prev.coins + JOURNEY_REWARD_COINS }));
             setJourneyReward(JOURNEY_REWARD_COINS);
+            setIsJourneyActive(false);
             setAppState('finished');
         }
     }, [currentModuleIndex, modules.length, highestModuleIndex]);
@@ -197,6 +201,7 @@ const App: React.FC = () => {
         setError(null);
         setAnswers({});
         setFeedback(null);
+        setIsJourneyActive(false);
     }, []);
 
     const handleSaveJourney = async () => {
@@ -248,6 +253,7 @@ const App: React.FC = () => {
         setCurrentModuleIndex(currentIndex);
         setHighestModuleIndex(highestIndex || currentIndex);
         setJourneyTitle(title);
+        setIsJourneyActive(true);
         setAppState('journey');
     };
 
@@ -261,6 +267,10 @@ const App: React.FC = () => {
         }
     };
     
+    const handleResumeJourney = () => {
+        setAppState('journey');
+    };
+
     const generatePdf = async (answers: { [key: string]: string }) => {
         const pdf = new jsPDF('p', 'mm', 'a4');
         const content = document.createElement('div');
@@ -363,7 +373,7 @@ const App: React.FC = () => {
                          <button onClick={() => setAppState('dashboard')} className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Dashboard</button>
                     </header>
                     <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4 w-full">
-                        {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateStats} />}
+                        {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateDuckStats} />}
                     </main>
                 </div>
                  <AnimatePresence>
@@ -393,6 +403,8 @@ const App: React.FC = () => {
                             onLoadJourney={(modules, index, title, highestIndex) => handleLoadJourney(modules, index, title, highestIndex)} 
                             onStartNewJourney={() => setAppState('upload')}
                             onStartAssignment={handleStartAssignment}
+                            onResumeJourney={handleResumeJourney}
+                            isJourneyActive={isJourneyActive}
                         />;
             case 'upload':
                 return <UploadStep 
@@ -401,6 +413,8 @@ const App: React.FC = () => {
                             error={error} 
                             onViewJourneys={() => setAppState('dashboard')}
                             onStartAssignment={handleStartAssignment} 
+                            onResumeJourney={handleResumeJourney}
+                            isJourneyActive={isJourneyActive}
                         />;
             case 'assignmentUpload':
                 return <AssignmentUpload
@@ -409,6 +423,8 @@ const App: React.FC = () => {
                             error={error}
                             onViewJourneys={() => setAppState('dashboard')}
                             onCreateJourney={() => setAppState('upload')}
+                            onResumeJourney={handleResumeJourney}
+                            isJourneyActive={isJourneyActive}
                         />;
             case 'loading':
                 return <LoadingGame key="loading" message="AI is building your personalized journey..." />;

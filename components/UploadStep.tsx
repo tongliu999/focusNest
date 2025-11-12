@@ -8,12 +8,13 @@ interface UploadStepProps {
   error: string | null;
   onViewJourneys: () => void;
   onStartAssignment: () => void;
+  onResumeJourney: () => void;
+  isJourneyActive: boolean;
 }
 
 const defaultContent = `A brief history of the internet.`;
 
-
-const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys, onStartAssignment }) => {
+const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys, onStartAssignment, onResumeJourney, isJourneyActive }) => {
   const [text, setText] = useState(defaultContent);
   const [processing, setProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +57,6 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
       }
       setProcessing(false);
     }
-    // Clear the input value to allow re-uploading the same file
     if (e.target) {
       e.target.value = '';
     }
@@ -114,11 +114,21 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
         </motion.button>
       </form>
       <div className="mt-8 flex justify-center gap-4">
+        {isJourneyActive && (
+            <motion.button
+              onClick={onResumeJourney}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="py-3 px-6 bg-gradient-to-r from-purple-500 to-purple-800 text-white font-semibold rounded-xl shadow-md hover:from-purple-600 hover:to-purple-900 transition-all duration-300"
+            >
+              Resume Journey
+            </motion.button>
+        )}
         <motion.button
           onClick={onViewJourneys}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="py-3 px-6 bg-gradient-to-r from-purple-400 to-purple-800 text-white font-semibold rounded-xl shadow-md hover:from-purple-500 hover:to-purple-900 transition-all duration-300"
+          className="py-3 px-6 bg-gradient-to-r from-gray-400 to-gray-800 text-white font-semibold rounded-xl shadow-md hover:from-gray-500 hover:to-gray-900 transition-all duration-300"
         >
           View All Journeys
         </motion.button>
