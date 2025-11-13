@@ -13,7 +13,7 @@ interface DashboardProps {
     isJourneyActive: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment, onResumeJourney, isJourneyActive }) => {
+const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment, onResumeJourney, isJourneyActive}) => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">

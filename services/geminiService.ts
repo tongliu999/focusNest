@@ -1,6 +1,6 @@
 // ai.ts
 import { getAI, getGenerativeModel } from "firebase/ai";
-import { app } from "./firebase";
+import { app } from "../firebaseConfig";
 import { LearningJourney } from "../types";
 import {
   Type,
