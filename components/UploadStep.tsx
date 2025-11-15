@@ -12,7 +12,7 @@ interface UploadStepProps {
   isJourneyActive: boolean;
 }
 
-const defaultContent = `A brief history of the internet.`;
+const defaultContent = ``;
 
 const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys, onStartAssignment, onResumeJourney, isJourneyActive }) => {
   const [text, setText] = useState(defaultContent);
@@ -99,7 +99,7 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste your notes, an article, or any text here to begin..."
+          placeholder={"Paste your notes, an article, or any text here to begin. \n\n Example: 'A brief history of WWII'"}
           className="w-full h-64 p-4 pl-14 pr-20 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-400 transition duration-200 resize-none text-lg bg-white text-gray-800 placeholder:text-gray-400"
         />
         <motion.button

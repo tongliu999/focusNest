@@ -12,9 +12,7 @@ interface AssignmentUploadProps {
   isJourneyActive: boolean;
 }
 
-const defaultContent = `Please solve the following problems:
-1. What is the capital of France?
-2. What is 2 + 2?`;
+const defaultContent = ``;
 
 const AssignmentUpload: React.FC<AssignmentUploadProps> = ({ onStart, error, onViewJourneys, onCreateJourney, onResumeJourney, isJourneyActive }) => {
   const [text, setText] = useState(defaultContent);
@@ -100,9 +98,15 @@ const AssignmentUpload: React.FC<AssignmentUploadProps> = ({ onStart, error, onV
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste your assignment here to begin..."
+          placeholder={
+            "Paste your assignment here to begin...\n\n" +
+            "Example:\n 1. What's 1 + 1?\n" +
+            "2. Why did Germany invade the Soviet Union?"
+          }
           className="w-full h-64 p-4 pl-14 pr-20 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-400 transition duration-200 resize-none text-lg bg-white text-gray-800 placeholder:text-gray-400"
         />
+
+
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
