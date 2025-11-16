@@ -92,11 +92,11 @@ const AssignmentUpload: React.FC<AssignmentUploadProps> = ({ onStart, error, onV
             <button
                 type="button"
                 onClick={handleAttachFileClick}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-200 transition-colors duration-200 z-10"
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-700 transition-colors duration-200 z-10"
                 aria-label="Attach file to import text"
                 title="Add files"
             >
-                {processing ? <LoaderIcon className="w-6 h-6 text-gray-500" /> : <PlusIcon className="w-6 h-6 text-gray-500" />}
+                {processing ? <LoaderIcon className="w-6 h-6 text-white" /> : <PlusIcon className="w-6 h-6 text-white" />}
             </button>
             <input 
                 type="file"
@@ -110,14 +110,14 @@ const AssignmentUpload: React.FC<AssignmentUploadProps> = ({ onStart, error, onV
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Paste your assignment here to begin..."
-              className="w-full max-h-[60vh] p-4 pl-14 pr-14 rounded-2xl border border-gray-200 focus:ring-2 focus:ring-blue-400 transition-all duration-200 resize-none text-lg bg-white text-gray-800 placeholder:text-gray-400 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
+              className="w-full max-h-[60vh] p-4 pl-14 pr-14 rounded-2xl border border-gray-700 bg-gray-800 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-blue-400 transition-all duration-200 resize-none text-lg overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
               rows={1}
             />
             <motion.button
               whileTap={{ scale: 0.95 }}
               type="submit"
               disabled={!text.trim() || text === defaultContent}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-gradient-to-r from-green-400 to-green-800 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-300 disabled:bg-none disabled:shadow-none disabled:cursor-not-allowed hover:from-green-500 hover:to-green-900 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 flex items-center justify-center"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-gradient-to-r from-green-400 to-green-800 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:bg-none disabled:shadow-none disabled:cursor-not-allowed hover:from-green-500 hover:to-green-900 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 flex items-center justify-center"
               aria-label="Start Assignment"
             >
                 <ArrowRightIcon className="w-5 h-5" />
