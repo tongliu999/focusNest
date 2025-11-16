@@ -12,11 +12,11 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ mode, onComplete }) => {
     const duration = useMemo(() => (mode === 'focus' ? FOCUS_DURATION : BREAK_DURATION), [mode]);
     
     const [timeLeft, setTimeLeft] = useState(duration);
-    const [isRunning, setIsRunning] = useState(true);
+    const [isRunning, setIsRunning] = useState(false);
 
     useEffect(() => {
         setTimeLeft(duration);
-        setIsRunning(true);
+        setIsRunning(false);
     }, [duration]);
 
     useEffect(() => {

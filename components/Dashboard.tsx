@@ -13,7 +13,7 @@ interface DashboardProps {
     isJourneyActive: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment, onResumeJourney, isJourneyActive}) => {
+const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney, onStartNewJourney, onStartAssignment, onResumeJourney, isJourneyActive }) => {
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">
@@ -25,7 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney,
     return (
         <div className="p-4 sm:p-8 w-full max-w-4xl mx-auto">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">Public Journeys</h1>
+                <h1 className="text-4xl font-bold text-black">Public Lessons</h1>
                 <div>
                     {isJourneyActive && (
                         <button 
@@ -39,13 +39,13 @@ const Dashboard: React.FC<DashboardProps> = ({ journeys, loading, onLoadJourney,
                         onClick={onStartNewJourney} 
                         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
                     >
-                        + Create New
+                        New Lesson
                     </button>
                     <button 
                         onClick={onStartAssignment}
                         className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded ml-2"
                     >
-                        Do an Assignment!
+                        Do an Assignment
                     </button>
                 </div>
             </div>
