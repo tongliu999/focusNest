@@ -18,9 +18,9 @@ import Dashboard from './components/Dashboard';
 import LearnModule from './components/LearnModule';
 import QuizModule from './components/QuizModule';
 import MatchingGameModule from './components/MatchingGameModule';
-import GameModule from './components/GameModule';
 import AssignmentUpload from './components/AssignmentUpload';
 import AssignmentModule from './components/AssignmentModule';
+import BreakScreen from './components/BreakScreen';
 import { ChevronRightIcon } from './components/icons';
 
 type AppState = 'dashboard' | 'upload' | 'loading' | 'welcome' | 'journey' | 'break' | 'finished' | 'assignmentUpload';
@@ -335,15 +335,19 @@ const App: React.FC = () => {
                 return <div className="text-center">Unsupported module type. <button onClick={handleNextModule} className="underline">Skip</button></div>;
         }
     };
+    
+    if (appState === 'break') {
+        return <BreakScreen onComplete={() => setAppState('journey')} />;
+    }
 
-    if (appState === 'journey' || appState === 'break') {
+    if (appState === 'journey') {
         return (
             <div className="min-h-screen w-full flex text-dark-text relative">
                 <JourneyMap 
                     modules={modules} 
                     currentIndex={currentModuleIndex} 
                     highestIndex={highestModuleIndex}
-                    currentStatus={appState === 'journey' ? 'journey' : 'game'} 
+                    currentStatus='journey'
                     onSave={handleSaveJourney}
                     onModuleSelect={handleModuleSelect}
                     isVisible={isSidebarVisible}
@@ -362,13 +366,13 @@ const App: React.FC = () => {
                          <div className="flex-grow" />
                          <PomodoroTimer 
                             key={timerKey}
-                            mode={appState === 'journey' ? 'focus' : 'break'}
+                            mode='focus'
                             onComplete={handleTimerComplete}
                         />
                          <button onClick={() => setAppState('dashboard')} className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Dashboard</button>
                     </header>
                     <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4 w-full">
-                        {appState === 'journey' ? renderModule() : <GameModule onGameEnd={handleTimerComplete} stats={duckStats} onUpdateStats={handleUpdateStats} />}
+                        {renderModule()}
                     </main>
                 </div>
                  <AnimatePresence>

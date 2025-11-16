@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Module } from '../types';
+import { Module, QuestionType } from '../types';
+import Editor from '@monaco-editor/react';
 
 interface QuizModuleProps {
     module: Module;
@@ -78,14 +79,29 @@ const QuizModule: React.FC<QuizModuleProps> = ({ module, onComplete, onIncorrect
         return "bg-gray-200/50 border-gray-300/50 opacity-70";
     };
 
+    const renderQuestionContent = () => {
+        if (question.questionType === QuestionType.Code) {
+            return (
+                <Editor
+                    height="200px"
+                    language="javascript"
+                    value={question.question}
+                    options={{ readOnly: true, minimap: { enabled: false } }}
+                    theme="vs-dark"
+                />
+            );
+        }
+        return <p className="text-lg text-dark-text mb-6 font-medium">{question.question}</p>;
+    };
+
     return (
         <div className="w-full max-w-2xl mx-auto p-8 bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/30">
             <h2 className="text-xl font-bold text-dark-text mb-1">{module.title}</h2>
             <p className="text-light-text mb-6">Question {currentQuestionIndex + 1} of {module.questions.length}</p>
 
-            <p className="text-lg text-dark-text mb-6 font-medium">{question.question}</p>
+            {renderQuestionContent()}
 
-            <div className="space-y-3">
+            <div className="space-y-3 mt-6">
                 {question.options.map((option, index) => (
                     <motion.button
                         key={index}
@@ -95,7 +111,17 @@ const QuizModule: React.FC<QuizModuleProps> = ({ module, onComplete, onIncorrect
                         disabled={isAnswered}
                         className={`w-full text-left p-4 border rounded-xl transition-all duration-200 ${getButtonClass(index)}`}
                     >
-                        {option}
+                        {question.questionType === QuestionType.Code ? (
+                            <Editor
+                                height="50px"
+                                language="javascript"
+                                value={option}
+                                options={{ readOnly: true, minimap: { enabled: false }, lineNumbers: 'off' }}
+                                theme="vs-dark"
+                            />
+                        ) : (
+                            option
+                        )}
                     </motion.button>
                 ))}
             </div>

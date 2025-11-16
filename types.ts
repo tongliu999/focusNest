@@ -6,11 +6,18 @@ export enum ModuleType {
   Assignment = 'Assignment',
 }
 
+export enum QuestionType {
+  Text = 'Text',
+  Code = 'Code',
+  Latex = 'Latex',
+}
+
 export interface PracticeQuestion {
   question: string;
   options: string[];
   correctAnswerIndex: number;
   explanation: string;
+  questionType?: QuestionType;
 }
 
 export interface MatchingPair {

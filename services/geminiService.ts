@@ -189,6 +189,57 @@ const matchingModuleSchema = {
   required: ["title", "type", "instructions", "pairs"],
 } as const;
 
+const QUESTION_TYPES = ["text", "code", "latex"] as const;
+export type QuestionType = (typeof QUESTION_TYPES)[number];
+
+async function classifyQuestionType(question: string): Promise<QuestionType> {
+  try {
+    const result = await generateJson<{ questionType: QuestionType }>(
+      {
+        generationConfig: {
+          ...BASE_JSON_CONFIG,
+          responseSchema: {
+            type: "object",
+            properties: {
+              questionType: {
+                type: "string",
+                enum: QUESTION_TYPES as any,
+              },
+            },
+            required: ["questionType"],
+          } as any,
+          temperature: 0.1, // keep deterministic
+        },
+      },
+      `
+Return ONLY JSON of the form:
+{ "questionType": "text" | "code" | "latex" }
+
+Definitions:
+- "code": the main answer involves writing or reading programming code
+- "latex": the main answer requires LaTeX math or notation (e.g. TeX commands, equations)
+- "text": everything else (conceptual, explanation, proofs in plain text, short answers, etc.)
+
+Classify this question:
+
+---
+${question}
+---
+`.trim(),
+      { questionType: "text" }
+    );
+
+    if (result?.questionType && QUESTION_TYPES.includes(result.questionType)) {
+      return result.questionType;
+    }
+  } catch (e) {
+    // fall through to default
+  }
+
+  return "text";
+}
+
+
 /**
  * ------------------------------------------------------------
  *  Robust response readers & JSON parsing
@@ -306,8 +357,10 @@ const trimWords = (s: string, maxWords: number) => {
 
 const normalizeJourney = (j: LearningJourney): LearningJourney => {
   const out: LearningJourney = { title: (j.title || "").trim(), modules: [] };
+
   for (const m of j.modules || []) {
     const base = { title: (m.title || "").trim(), type: m.type } as any;
+
     if (m.type === "Learn") {
       base.summary = m.summary ? trimWords(m.summary, 60) : "";
       base.keyPoints = Array.isArray(m.keyPoints)
@@ -334,14 +387,29 @@ const normalizeJourney = (j: LearningJourney): LearningJourney => {
           }))
         : [];
     } else if (m.type === "Assignment") {
-      base.questions = (m.questions || []).slice(0, 1).map((q: any) => ({
-        question: (q.question || "").trim(),
-      }));
+      base.questions = (m.questions || []).slice(0, 1).map((q: any) => {
+        // preserve / normalize questionType
+        let questionType: any = "text";
+        if (typeof q.questionType === "string") {
+          const lower = q.questionType.toLowerCase();
+          if (["text", "code", "latex"].includes(lower)) {
+            questionType = lower;
+          }
+        }
+
+        return {
+          question: (q.question || "").trim(),
+          questionType, // <-- kept here
+        };
+      });
     }
+
     out.modules.push(base);
   }
+  console.log(out)
   return out;
 };
+
 
 /**
  * ------------------------------------------------------------
@@ -826,7 +894,11 @@ export const generateAssignmentJourney = async (
       {
         generationConfig: {
           ...BASE_JSON_CONFIG,
-          responseSchema: { type: "object", properties: { title: { type: "string" }}, required: ["title"] } as any,
+          responseSchema: {
+            type: "object",
+            properties: { title: { type: "string" } },
+            required: ["title"],
+          } as any,
           temperature: 0.2,
         },
       },
@@ -880,23 +952,30 @@ ${text}
     }
 
     // Assignment modules: a single free-response question each, using the exact extracted text
+    const questionText = (stub.focus || "Answer the prompt in your own words.").trim();
+    const questionType = await classifyQuestionType(questionText);
+
     return {
       title: stub.title,
       type: "Assignment",
       questions: [
         {
-          question: (stub.focus || "Answer the prompt in your own words.").trim(),
+          question: questionText,
+          questionType, // "text" | "code" | "latex"
         },
       ],
     };
   });
 
-  // 3) Assemble + enforce word limits (summary/keyPoints/imagePrompt/…)
-  return normalizeJourney({
+  const normalized = normalizeJourney({
     title: journeyTitle,
     modules,
   } as LearningJourney);
+  console.log(">>> NORMALIZED ASSIGNMENT JOURNEY", JSON.stringify(normalized, null, 2));
+  
+  return normalized;
 };
+
 
 /**
  * ------------------------------------------------------------

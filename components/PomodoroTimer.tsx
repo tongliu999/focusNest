@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { PlayIcon, PauseIcon, ResetIcon, ArrowRightIcon } from './icons';
 import { FOCUS_DURATION, BREAK_DURATION } from '../App';
@@ -16,8 +16,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ mode, onComplete }) => {
 
     useEffect(() => {
         setTimeLeft(duration);
-        setIsRunning(false);
-    }, [duration]);
+        setIsRunning(mode === 'break');
+    }, [duration, mode]);
 
     useEffect(() => {
         if (!isRunning) return;
