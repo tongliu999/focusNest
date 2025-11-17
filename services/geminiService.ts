@@ -22,14 +22,17 @@ const ai = getAI(app);
 
 const BASE_JSON_CONFIG = {
   responseMimeType: "application/json",
-  maxOutputTokens: 8192,
   temperature: 0.45,
 } as const;
 
 const BASE_TEXT_CONFIG = {
-  maxOutputTokens: 512,
   temperature: 0.5,
 } as const;
+
+const FAST_TEXT_CONFIG = {
+  maxOutputTokens: 1024,
+  temperature: 0.5
+}
 
 const BASE_SAFETY = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
@@ -1000,8 +1003,8 @@ export const getTextFromImage = async (
 
 export const getTextFromPdf = async (file: File): Promise<string> => {
   const model = getGenerativeModel(ai, {
-    model: "gemini-2.5-flash",
-    generationConfig: { ...BASE_TEXT_CONFIG, maxOutputTokens: 2048 },
+    model: "gemini-2.5-pro",
+    generationConfig: { ...BASE_TEXT_CONFIG},
     safetySettings: [...BASE_SAFETY],
   });
 
