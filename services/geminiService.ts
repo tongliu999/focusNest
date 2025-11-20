@@ -507,7 +507,7 @@ export const generateLearningJourney = async (
   { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
   
   WORD LIMITS:
-  - summary ≤ 80 words
+  - summary ≤ 120 words
   - each keyPoints item ≤ 16 words
   - imagePrompt ≤ 25 words
   
@@ -722,7 +722,7 @@ You are creating exactly TWO modules for Topic #${idx + 1}: "${t.topic}".
 Return strict JSON: { "modules": [ ... ] } with:
 
 WORD LIMITS:
-- Learn.summary ≤ 80 words; keyPoints (2–4 items, each ≤ 16 words); imagePrompt ≤ 25 words.
+- Learn.summary ≤ 120 words; keyPoints (2–4 items, each ≤ 16 words); imagePrompt ≤ 25 words.
 - Quiz.explanation ≤ 25 words.
 
 MODULES:

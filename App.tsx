@@ -35,10 +35,10 @@ export interface Journey {
 }
 
 export interface DuckStats {
-  speed: number;
-  jumpHeight: number;
-  coins: number;
-  duckLives: number;
+    speed: number;
+    jumpHeight: number;
+    coins: number;
+    duckLives: number;
 }
 
 export const FOCUS_DURATION = 25 * 60;
@@ -56,7 +56,7 @@ const App: React.FC = () => {
     const [welcomeStep, setWelcomeStep] = useState(1);
     const [isSidebarVisible, setIsSidebarVisible] = useState(true);
     const [isJourneyActive, setIsJourneyActive] = useState(false);
-    
+
     const [journeys, setJourneys] = useState<Journey[]>([]);
     const [journeysLoading, setJourneysLoading] = useState(true);
 
@@ -167,7 +167,7 @@ const App: React.FC = () => {
             }
         }
     };
-    
+
     const handleIncorrectAnswer = useCallback(async (module: Module, questionIndex: number) => {
         const question = module.questions?.[questionIndex];
         if (question) {
@@ -212,7 +212,7 @@ const App: React.FC = () => {
             }
 
             const journeyCollection = collection(db, "journeys");
-            
+
             const newJourneyData = {
                 title: journeyTitle,
                 modules,
@@ -222,16 +222,16 @@ const App: React.FC = () => {
             };
 
             const docRef = await addDoc(journeyCollection, newJourneyData);
-            
+
             const newJourneyForState = {
                 ...newJourneyData,
                 id: docRef.id,
                 createdAt: { toDate: () => new Date() }
             };
-            
+
             setJourneys(prev => [newJourneyForState, ...prev]);
             setNotification("Journey saved successfully!");
-            
+
             setTimeout(() => {
                 setAppState('dashboard');
                 setNotification(null);
@@ -261,11 +261,11 @@ const App: React.FC = () => {
             setCurrentModuleIndex(index);
         }
     };
-    
+
     const handleResumeJourney = () => {
         setAppState('journey');
     };
-    
+
     const generatePdf = async (answers: { [key: string]: string }) => {
         const pdf = new jsPDF('p', 'mm', 'a4');
         const content = document.createElement('div');
@@ -285,7 +285,7 @@ const App: React.FC = () => {
                 </div>
             `;
         }
-        
+
         content.innerHTML = html;
         document.body.appendChild(content);
 
@@ -307,7 +307,7 @@ const App: React.FC = () => {
             pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
             heightLeft -= pdf.internal.pageSize.getHeight();
         }
-        
+
         pdf.save('assignment-answers.pdf');
     };
 
@@ -320,13 +320,13 @@ const App: React.FC = () => {
                 return <LearnModule module={module} onComplete={handleNextModule} />;
             case ModuleType.Quiz:
             case ModuleType.Test:
-                return <QuizModule 
-                            module={module} 
-                            onComplete={handleNextModule} 
-                            onIncorrect={handleIncorrectAnswer}
-                            refresher={refresher}
-                            onClearRefresher={() => setRefresher(null)}
-                        />;
+                return <QuizModule
+                    module={module}
+                    onComplete={handleNextModule}
+                    onIncorrect={handleIncorrectAnswer}
+                    refresher={refresher}
+                    onClearRefresher={() => setRefresher(null)}
+                />;
             case ModuleType.MatchingGame:
                 return <MatchingGameModule module={module} onComplete={handleNextModule} />;
             case ModuleType.Assignment:
@@ -335,17 +335,17 @@ const App: React.FC = () => {
                 return <div className="text-center">Unsupported module type. <button onClick={handleNextModule} className="underline">Skip</button></div>;
         }
     };
-    
+
     if (appState === 'break') {
         return <BreakScreen onComplete={() => setAppState('journey')} />;
     }
 
     if (appState === 'journey') {
         return (
-            <div className="min-h-screen w-full flex text-dark-text relative">
-                <JourneyMap 
-                    modules={modules} 
-                    currentIndex={currentModuleIndex} 
+            <div className="h-screen w-full flex text-dark-text relative overflow-hidden">
+                <JourneyMap
+                    modules={modules}
+                    currentIndex={currentModuleIndex}
                     highestIndex={highestModuleIndex}
                     currentStatus='journey'
                     onSave={handleSaveJourney}
@@ -355,28 +355,28 @@ const App: React.FC = () => {
                 />
                 <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
                     <header className="w-full p-4 flex justify-between items-center absolute top-0 left-0 z-10">
-                         {!isSidebarVisible && (
-                            <button 
+                        {!isSidebarVisible && (
+                            <button
                                 onClick={() => setIsSidebarVisible(true)}
                                 className="p-2 rounded-md hover:bg-gray-200"
                             >
                                 <ChevronRightIcon className="w-6 h-6" />
                             </button>
-                         )}
-                         <div className="flex-grow" />
-                         <PomodoroTimer 
+                        )}
+                        <div className="flex-grow" />
+                        <PomodoroTimer
                             key={timerKey}
                             mode='focus'
                             onComplete={handleTimerComplete}
                         />
-                         <button onClick={() => setAppState('dashboard')} className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Dashboard</button>
+                        <button onClick={() => setAppState('dashboard')} className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Dashboard</button>
                     </header>
                     <main className="flex-1 flex items-center justify-center pt-20 pb-4 px-4 w-full">
                         {renderModule()}
                     </main>
                 </div>
-                 <AnimatePresence>
-                   {notification && (
+                <AnimatePresence>
+                    {notification && (
                         <motion.div
                             initial={{ opacity: 0, y: 50, scale: 0.5 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -391,51 +391,51 @@ const App: React.FC = () => {
             </div>
         );
     }
-    
+
     const renderContent = () => {
-         switch (appState) {
+        switch (appState) {
             case 'dashboard':
                 const enrichedJourneys = journeys.map(j => ({ ...j, highestModuleIndex: j.highestModuleIndex || j.currentModuleIndex }));
-                return <Dashboard 
-                            journeys={enrichedJourneys} 
-                            loading={journeysLoading}
-                            onLoadJourney={(modules, index, title, highestIndex) => handleLoadJourney(modules, index, title, highestIndex)} 
-                            onStartNewJourney={() => setAppState('upload')}
-                            onStartAssignment={handleStartAssignment}
-                            onResumeJourney={handleResumeJourney}
-                            isJourneyActive={isJourneyActive}
-                        />;
+                return <Dashboard
+                    journeys={enrichedJourneys}
+                    loading={journeysLoading}
+                    onLoadJourney={(modules, index, title, highestIndex) => handleLoadJourney(modules, index, title, highestIndex)}
+                    onStartNewJourney={() => setAppState('upload')}
+                    onStartAssignment={handleStartAssignment}
+                    onResumeJourney={handleResumeJourney}
+                    isJourneyActive={isJourneyActive}
+                />;
             case 'upload':
-                return <UploadStep 
-                            key="upload" 
-                            onStart={handleGenerateJourney} 
-                            error={error} 
-                            onViewJourneys={() => setAppState('dashboard')}
-                            onStartAssignment={handleStartAssignment} 
-                            onResumeJourney={handleResumeJourney}
-                            isJourneyActive={isJourneyActive}
-                        />;
+                return <UploadStep
+                    key="upload"
+                    onStart={handleGenerateJourney}
+                    error={error}
+                    onViewJourneys={() => setAppState('dashboard')}
+                    onStartAssignment={handleStartAssignment}
+                    onResumeJourney={handleResumeJourney}
+                    isJourneyActive={isJourneyActive}
+                />;
             case 'assignmentUpload':
                 return <AssignmentUpload
-                            key="assignmentUpload"
-                            onStart={handleGenerateAssignmentJourney}
-                            error={error}
-                            onViewJourneys={() => setAppState('dashboard')}
-                            onCreateJourney={() => setAppState('upload')}
-                            onResumeJourney={handleResumeJourney}
-                            isJourneyActive={isJourneyActive}
-                        />;
+                    key="assignmentUpload"
+                    onStart={handleGenerateAssignmentJourney}
+                    error={error}
+                    onViewJourneys={() => setAppState('dashboard')}
+                    onCreateJourney={() => setAppState('upload')}
+                    onResumeJourney={handleResumeJourney}
+                    isJourneyActive={isJourneyActive}
+                />;
             case 'loading':
                 return <LoadingGame key="loading" message="AI is building your personalized journey..." />;
             case 'welcome':
                 return <WelcomeModal key="welcome" step={welcomeStep} onNext={() => setWelcomeStep(2)} onStart={handleStartJourney} />;
             case 'finished':
-                return <CompletionScreen 
-                            key="finished" 
-                            onRestart={handleReset} 
-                            reward={journeyReward} 
-                            onDownloadPdf={() => generatePdf(answers)} 
-                        />;
+                return <CompletionScreen
+                    key="finished"
+                    onRestart={handleReset}
+                    reward={journeyReward}
+                    onDownloadPdf={() => generatePdf(answers)}
+                />;
             default:
                 return null;
         }
