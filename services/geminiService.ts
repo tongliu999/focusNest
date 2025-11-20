@@ -365,9 +365,9 @@ const normalizeJourney = (j: LearningJourney): LearningJourney => {
     const base = { title: (m.title || "").trim(), type: m.type } as any;
 
     if (m.type === "Learn") {
-      base.summary = m.summary ? trimWords(m.summary, 60) : "";
+      base.summary = m.summary ? trimWords(m.summary, 120) : "";
       base.keyPoints = Array.isArray(m.keyPoints)
-        ? m.keyPoints.slice(0, 4).map((kp: string) => trimWords(kp, 12))
+        ? m.keyPoints.slice(0, 4).map((kp: string) => trimWords(kp, 30))
         : [];
       base.imagePrompt = m.imagePrompt ? trimWords(m.imagePrompt, 25) : "";
     } else if (m.type === "Quiz" || m.type === "Test") {
@@ -379,14 +379,14 @@ const normalizeJourney = (j: LearningJourney): LearningJourney => {
           options: Array.isArray(q.options) ? q.options.slice(0, 4) : [],
           correctAnswerIndex:
             typeof q.correctAnswerIndex === "number" ? q.correctAnswerIndex : 0,
-          explanation: q.explanation ? trimWords(q.explanation, 25) : "",
+          explanation: q.explanation ? trimWords(q.explanation, 40) : "",
         }));
     } else if (m.type === "Matching Game") {
-      base.instructions = m.instructions ? trimWords(m.instructions, 25) : "";
+      base.instructions = m.instructions ? trimWords(m.instructions, 40) : "";
       base.pairs = Array.isArray(m.pairs)
         ? m.pairs.slice(0, 4).map((p: any) => ({
             term: (p.term || "").trim(),
-            definition: trimWords(p.definition || "", 20),
+            definition: trimWords(p.definition || "", 40),
           }))
         : [];
     } else if (m.type === "Assignment") {
@@ -435,12 +435,12 @@ export const generateLearningJourney = async (
     } = {}
   ): Promise<LearningJourney> => {
     const {
-      maxModules = 8,
+      maxModules = 40,
       includeTest = true,
       allowMatching = true,
       minLearnBeforeInteractive = 2,
       titleHint = "",
-      concurrency = 4,
+      concurrency = 12,
     } = opts;
   
     // 1) PLAN (tiny)
@@ -459,7 +459,7 @@ export const generateLearningJourney = async (
   - Start with ${minLearnBeforeInteractive} "Learn" modules.
   - Then alternate small groups of "Learn" with an interactive module (${allowMatching ? `"Quiz" or "Matching Game"` : `"Quiz"`}).
   - ${includeTest ? "End with one \"Test\" module (3–4 questions)." : "Do NOT include a final \"Test\" module."}
-  - 6–10 modules total, but cap at ${maxModules}.
+  - 6–30 modules total, but cap at ${maxModules}.
   - Title hint (optional): ${titleHint || "n/a"}
   - Output ONLY JSON: { "title", "plan": [ { "type", "title", "focus?" } ] }.
   
@@ -507,8 +507,8 @@ export const generateLearningJourney = async (
   { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
   
   WORD LIMITS:
-  - summary ≤ 60 words
-  - each keyPoints item ≤ 12 words
+  - summary ≤ 80 words
+  - each keyPoints item ≤ 16 words
   - imagePrompt ≤ 25 words
   
   Title: ${stub.title}
@@ -722,7 +722,7 @@ You are creating exactly TWO modules for Topic #${idx + 1}: "${t.topic}".
 Return strict JSON: { "modules": [ ... ] } with:
 
 WORD LIMITS:
-- Learn.summary ≤ 60 words; keyPoints (2–4 items, each ≤ 12 words); imagePrompt ≤ 25 words.
+- Learn.summary ≤ 80 words; keyPoints (2–4 items, each ≤ 16 words); imagePrompt ≤ 25 words.
 - Quiz.explanation ≤ 25 words.
 
 MODULES:
@@ -878,7 +878,7 @@ export const generateAssignmentJourney = async (
   } = {}
 ): Promise<LearningJourney> => {
   const {
-    maxModules = 12,
+    maxModules = 40,
     minLearnBeforeAssignment = 1,
     titleHint = "",
     concurrency = 6,
@@ -938,7 +938,7 @@ Return ONLY JSON for one "Learn" module:
 
 WORD LIMITS:
 - summary ≤ 60 words
-- each keyPoints item ≤ 12 words
+- each keyPoints item ≤ 20 words
 - imagePrompt ≤ 25 words
 
 Title: ${stub.title}
