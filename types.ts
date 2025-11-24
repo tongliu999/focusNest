@@ -35,6 +35,7 @@ export interface Module {
   summary?: string;
   keyPoints?: string[];
   imagePrompt?: string;
+  image?: string;
   // For Quiz/Test modules
   questions?: PracticeQuestion[];
   // For MatchingGame modules

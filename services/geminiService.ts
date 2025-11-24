@@ -1,5 +1,5 @@
 // ai.ts
-import { getAI, getGenerativeModel } from "firebase/ai";
+import { getAI, getGenerativeModel, getImagenModel } from "firebase/ai";
 import { app } from "../firebaseConfig";
 import { LearningJourney, Verbosity } from "../types";
 import {
@@ -46,6 +46,37 @@ const flashText = getGenerativeModel(ai, {
   generationConfig: { ...BASE_TEXT_CONFIG },
   safetySettings: [...BASE_SAFETY],
 });
+
+const imagenModel = getImagenModel(ai, { model: "imagen-4.0-generate-001" });
+
+const generateImage = async (prompt: string): Promise<string | null> => {
+  try {
+    const response = await imagenModel.generateImages(prompt);
+
+    if (response.filteredReason) {
+      console.warn("Image generation filtered:", response.filteredReason);
+      return null;
+    }
+
+    if (response.images.length === 0) {
+      console.error("No images in the response");
+      return null;
+    }
+
+    const image = response.images[0];
+
+    // The image object has bytesBase64Encoded property
+    if (image.bytesBase64Encoded) {
+      return `data:${image.mimeType || 'image/png'};base64,${image.bytesBase64Encoded}`;
+    }
+
+    return null;
+  }
+  catch (e) {
+    console.error("Image generation failed:", e);
+    return null;
+  }
+};
 
 /**
  * ------------------------------------------------------------
@@ -375,6 +406,7 @@ const normalizeJourney = (j: LearningJourney, verbosity: Verbosity = 'long'): Le
         ? m.keyPoints.slice(0, 4).map((kp: string) => trimWords(kp, limits.keyPoints))
         : [];
       base.imagePrompt = m.imagePrompt ? trimWords(m.imagePrompt, 25) : "";
+      base.image = m.image || null;
     } else if (m.type === "Quiz" || m.type === "Test") {
       const maxQ = m.type === "Quiz" ? 2 : 4;
       base.questions = (m.questions || [])
@@ -506,7 +538,7 @@ export const generateLearningJourney = async (
   // 2) PER-MODULE generation — PARALLEL with concurrency cap
   const modules = await mapWithLimit(planList, concurrency, async (stub) => {
     if (stub.type === "Learn") {
-      return await generateJson<any>(
+      const mod = await generateJson<any>(
         {
           generationConfig: {
             ...BASE_JSON_CONFIG,
@@ -533,6 +565,14 @@ export const generateLearningJourney = async (
   `.trim(),
         { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
       );
+
+      // Generate image from the imagePrompt
+      if (mod.imagePrompt) {
+        const imageData = await generateImage(mod.imagePrompt);
+        console.log('Image generated for:', mod.title, 'Data length:', imageData?.length || 0);
+        mod.image = imageData;
+      }
+      return mod;
     }
 
     if (stub.type === "Quiz") {
@@ -721,7 +761,7 @@ ${text}
   // Step 2: Per-topic Learn + Quiz
   const perTopic = await mapWithLimit(topicsRes.topics, 6, async (t, idx) => {
     const minimal = { modules: [] as any[] };
-    return await generateJson<{ modules: any[] }>(
+    const res = await generateJson<{ modules: any[] }>(
       {
         generationConfig: {
           ...BASE_JSON_CONFIG,
@@ -750,6 +790,17 @@ ${JSON.stringify(t.questions)}
 `.trim(),
       minimal
     );
+
+    // Generate images for Learn modules
+    if (res.modules) {
+      await Promise.all(res.modules.map(async (m: any) => {
+        if (m.type === 'Learn' && m.imagePrompt) {
+          m.image = await generateImage(m.imagePrompt);
+        }
+      }));
+    }
+
+    return res;
   });
 
   // Step 3: Reduce to full journey (assemble + normalize directly)
