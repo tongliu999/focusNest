@@ -49,11 +49,11 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message }) => {
 
   const resetGame = useCallback(() => {
     setPlayer({ y: PLAYER_GROUND_Y, vy: 0 });
-    setObstacles([{ 
-        id: Date.now(), 
-        x: GAME_WIDTH, 
-        width: 20, 
-        height: 20 
+    setObstacles([{
+      id: Date.now(),
+      x: GAME_WIDTH,
+      width: 20,
+      height: 20
     }]);
     frameCountRef.current = 0;
     setGameState('playing');
@@ -62,36 +62,36 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message }) => {
   useEffect(() => {
     resetGame();
   }, [resetGame]);
-  
+
   const gameTick = useCallback(() => {
     setPlayer(p => {
-        let newVy = p.vy - GRAVITY;
-        let newY = p.y + newVy;
-        if (newY <= PLAYER_GROUND_Y) {
-            newY = PLAYER_GROUND_Y;
-            newVy = 0;
-        }
-        return { y: newY, vy: newVy };
+      let newVy = p.vy - GRAVITY;
+      let newY = p.y + newVy;
+      if (newY <= PLAYER_GROUND_Y) {
+        newY = PLAYER_GROUND_Y;
+        newVy = 0;
+      }
+      return { y: newY, vy: newVy };
     });
 
     frameCountRef.current += 1;
     setObstacles(currentObstacles => {
-        let newObstacles = currentObstacles
-            .map(o => ({ ...o, x: o.x - OBSTACLE_SPEED }))
-            .filter(o => o.x > -o.width);
+      let newObstacles = currentObstacles
+        .map(o => ({ ...o, x: o.x - OBSTACLE_SPEED }))
+        .filter(o => o.x > -o.width);
 
-        if (frameCountRef.current % OBSTACLE_SPAWN_RATE === 0) {
-            const id = Date.now();
-            const height = Math.random() * (OBSTACLE_MAX_HEIGHT - OBSTACLE_MIN_HEIGHT) + OBSTACLE_MIN_HEIGHT;
-            const width = Math.random() * (OBSTACLE_MAX_WIDTH - OBSTACLE_MIN_WIDTH) + OBSTACLE_MIN_WIDTH;
-            newObstacles.push({ id, x: GAME_WIDTH + width, width, height });
-        }
-        return newObstacles;
+      if (frameCountRef.current % OBSTACLE_SPAWN_RATE === 0) {
+        const id = Date.now();
+        const height = Math.random() * (OBSTACLE_MAX_HEIGHT - OBSTACLE_MIN_HEIGHT) + OBSTACLE_MIN_HEIGHT;
+        const width = Math.random() * (OBSTACLE_MAX_WIDTH - OBSTACLE_MIN_WIDTH) + OBSTACLE_MIN_WIDTH;
+        newObstacles.push({ id, x: GAME_WIDTH + width, width, height });
+      }
+      return newObstacles;
     });
 
     gameLoopRef.current = requestAnimationFrame(gameTick);
   }, []);
-  
+
   useEffect(() => {
     if (gameState === 'playing') {
       gameLoopRef.current = requestAnimationFrame(gameTick);
@@ -102,7 +102,7 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message }) => {
       }
     };
   }, [gameState, gameTick]);
-  
+
   useEffect(() => {
     if (gameState !== 'playing') return;
     const playerRect = { x: PLAYER_X_POSITION, y: player.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT };
@@ -119,7 +119,7 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message }) => {
       }
     }
   }, [player.y, obstacles, gameState]);
-  
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && gameState === 'playing' && player.y === PLAYER_GROUND_Y) {
@@ -133,70 +133,71 @@ const LoadingGame: React.FC<LoadingGameProps> = ({ message }) => {
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/30 w-full max-w-lg">
       <h2 className="text-xl font-bold text-primary mb-2">Loading...</h2>
-      
-        <div 
-            className="relative bg-violet-50 rounded-lg overflow-hidden border-2 border-gray-300"
-            style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}
+
+      <div
+        className="relative bg-violet-50 rounded-lg overflow-hidden border-2 border-gray-300"
+        style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}
+      >
+        <div
+          className="absolute"
+          style={{
+            width: PLAYER_WIDTH,
+            height: PLAYER_HEIGHT,
+            left: `${PLAYER_X_POSITION}px`,
+            bottom: `${player.y}px`,
+            transform: gameState === 'gameOver' ? `rotate(-90deg)` : 'none',
+            transformOrigin: 'center center',
+            transition: 'transform 0.2s ease-out',
+          }}
         >
-            <div 
-            className="absolute"
+          <div className="w-full h-full relative">
+            <div className="absolute w-4 h-4 bg-dark-text rounded-full" style={{ top: '-10px', left: '2px' }}></div>
+            <div className="absolute w-0.5 h-full bg-dark-text" style={{ left: '9px' }}></div>
+            <div className="absolute w-full h-0.5 bg-dark-text" style={{ top: '8px' }}></div>
+          </div>
+        </div>
+
+        {obstacles.map(o => (
+          <div
+            key={o.id}
+            className="absolute bg-gray-500 rounded-sm"
             style={{
-                width: PLAYER_WIDTH,
-                height: PLAYER_HEIGHT,
-                left: `${PLAYER_X_POSITION}px`,
-                bottom: `${player.y}px`,
-                transform: gameState === 'gameOver' ? `rotate(-90deg)` : 'none',
-                transformOrigin: 'center center',
-                transition: 'transform 0.2s ease-out',
+              width: o.width,
+              height: o.height,
+              left: `${o.x}px`,
+              bottom: `${PLAYER_GROUND_Y}px`,
             }}
+          />
+        ))}
+
+        <div
+          className="absolute bottom-0 left-0 w-full bg-gray-400"
+          style={{ height: PLAYER_GROUND_Y }}
+        ></div>
+
+        {gameState === 'gameOver' && (
+          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center animate-fade-in">
+            <p className="text-white font-bold text-lg mb-3">Press space to jump!</p>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={resetGame}
+              className="py-2 px-8 bg-primary text-white font-semibold rounded-lg shadow-md hover:bg-primary-light transition-colors duration-300"
             >
-            <div className="w-full h-full relative">
-                <div className="absolute w-4 h-4 bg-dark-text rounded-full" style={{ top: '-10px', left: '2px' }}></div>
-                <div className="absolute w-0.5 h-full bg-dark-text" style={{ left: '9px' }}></div>
-                <div className="absolute w-full h-0.5 bg-dark-text" style={{ top: '8px' }}></div>
-            </div>
-            </div>
+              Restart
+            </motion.button>
+          </div>
+        )}
+      </div>
 
-            {obstacles.map(o => (
-            <div
-                key={o.id}
-                className="absolute bg-gray-500 rounded-sm"
-                style={{
-                width: o.width,
-                height: o.height,
-                left: `${o.x}px`,
-                bottom: `${PLAYER_GROUND_Y}px`,
-                }}
-            />
-            ))}
-            
-            <div 
-            className="absolute bottom-0 left-0 w-full bg-gray-400"
-            style={{ height: PLAYER_GROUND_Y }}
-            ></div>
-
-            {gameState === 'gameOver' && (
-            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center animate-fade-in">
-                <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={resetGame}
-                className="py-2 px-8 bg-primary text-white font-semibold rounded-lg shadow-md hover:bg-primary-light transition-colors duration-300"
-                >
-                Restart
-                </motion.button>
-            </div>
-            )}
-        </div>
-
-        <div className="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700 mt-4 overflow-hidden border border-gray-300">
-            <motion.div
-            className="bg-gradient-to-r from-blue-400 to-purple-500 h-full rounded-full"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            />
-        </div>
+      <div className="w-full bg-gray-200 rounded-full h-4 dark:bg-gray-700 mt-4 overflow-hidden border border-gray-300">
+        <motion.div
+          className="bg-gradient-to-r from-blue-400 to-purple-500 h-full rounded-full"
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        />
+      </div>
 
       <p className="mt-4 text-lg font-semibold text-dark-text">{message}</p>
     </div>
