@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PlusIcon, ArrowRightIcon, LoaderIcon } from './icons';
 import { getTextFromImage, getTextFromPdf } from '../services/geminiService';
+import { Verbosity } from '../types';
 
 interface UploadStepProps {
-  onStart: (text: string) => void;
+  onStart: (text: string, verbosity: Verbosity) => void;
   error: string | null;
   onViewJourneys: () => void;
   onStartAssignment: () => void;
@@ -17,6 +18,8 @@ const defaultContent = ``;
 const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys, onStartAssignment, onResumeJourney, isJourneyActive }) => {
   const [text, setText] = useState(defaultContent);
   const [processing, setProcessing] = useState(false);
+  const [verbosity, setVerbosity] = useState<Verbosity>('long');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -30,7 +33,7 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim() && text !== defaultContent) {
-      onStart(text);
+      onStart(text, verbosity);
     }
   };
 
@@ -72,16 +75,68 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
 
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 text-center">
+    <div className="w-full max-w-4xl mx-auto p-4 text-center relative">
+      {/* Verbosity Dropdown - Top Right */}
+      {/* Verbosity Dropdown - Fixed Top Left */}
+      <div className="fixed top-6 left-6 z-50">
+        <div className="relative">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center gap-2 px-4 py-2 text-black hover:text-gray-700 transition-colors duration-200"
+          >
+            <span className="text-2xl font-medium">
+              {verbosity === 'short' ? 'Concise' : 'Detailed'}
+            </span>
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {isDropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="absolute top-full mt-2 left-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
+            >
+              <button
+                onClick={() => {
+                  setVerbosity('long');
+                  setIsDropdownOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors duration-150 ${verbosity === 'long' ? 'bg-gray-50' : ''
+                  }`}
+              >
+                <div className="text-gray-900 font-medium text-lg">Detailed</div>
+                <div className="text-gray-500 text-sm mt-1">
+                  In-depth explanations and extended summaries
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setVerbosity('short');
+                  setIsDropdownOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors duration-150 ${verbosity === 'short' ? 'bg-gray-50' : ''
+                  }`}
+              >
+                <div className="text-gray-900 font-medium text-lg">Concise</div>
+                <div className="text-gray-500 text-sm mt-1">
+                  Shorter explanations and summaries
+                </div>
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+
       <h1 className="text-7xl font-normal text-black font-figtree">Focus Flow</h1>
       <p className="text-xl text-black mt-4 mb-12">What are you learning today?</p>
-      
+
       {error && (
-        <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-lg text-left" 
-            role="alert"
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-lg text-left"
+          role="alert"
         >
           <p className="font-bold">Oh no!</p>
           <p>{error}</p>
@@ -90,61 +145,61 @@ const UploadStep: React.FC<UploadStepProps> = ({ onStart, error, onViewJourneys,
 
       <form onSubmit={handleSubmit} className="w-full">
         <div className="relative w-full">
-            <button
-                type="button"
-                onClick={handleAttachFileClick}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-700 transition-colors duration-200 z-10"
-                aria-label="Attach file to import text"
-                title="Add files"
-            >
-                {processing ? <LoaderIcon className="w-6 h-6 text-white" /> : <PlusIcon className="w-6 h-6 text-white" />}
-            </button>
-            <input 
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".txt,.md,.text,image/*,application/pdf"
-            />
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste your notes, an article, or any text here to begin..."
-              className="w-full max-h-[60vh] p-4 pl-14 pr-14 rounded-2xl border border-gray-700 bg-gray-800 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-blue-400 transition-all duration-200 resize-none text-lg overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
-              rows={1}
-            />
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              type="submit"
-              disabled={!text.trim() || text === defaultContent}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:bg-none disabled:shadow-none disabled:cursor-not-allowed hover:from-blue-500 hover:to-purple-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 flex items-center justify-center"
-              aria-label="Start Learning"
-            >
-                <ArrowRightIcon className="w-5 h-5" />
-            </motion.button>
+          <button
+            type="button"
+            onClick={handleAttachFileClick}
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-700 transition-colors duration-200 z-10"
+            aria-label="Attach file to import text"
+            title="Add files"
+          >
+            {processing ? <LoaderIcon className="w-6 h-6 text-white" /> : <PlusIcon className="w-6 h-6 text-white" />}
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            accept=".txt,.md,.text,image/*,application/pdf"
+          />
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Paste your notes, an article, or any text here to begin..."
+            className="w-full max-h-[60vh] p-4 pl-14 pr-14 rounded-2xl border border-gray-700 bg-gray-800 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-blue-400 transition-all duration-200 resize-none text-lg overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]"
+            rows={1}
+          />
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            type="submit"
+            disabled={!text.trim() || text === defaultContent}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 text-white font-semibold rounded-full shadow-lg disabled:bg-gray-400 disabled:bg-none disabled:shadow-none disabled:cursor-not-allowed hover:from-blue-500 hover:to-purple-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 flex items-center justify-center"
+            aria-label="Start Learning"
+          >
+            <ArrowRightIcon className="w-5 h-5" />
+          </motion.button>
         </div>
       </form>
       <div className="mt-8 flex flex-col items-center gap-4">
         <div className="flex justify-center gap-4">
-            {isJourneyActive && (
-                <motion.button
-                  onClick={onResumeJourney}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="py-3 px-6 bg-gradient-to-r from-purple-500 to-purple-800 text-white font-semibold rounded-xl shadow-md hover:from-purple-600 hover:to-purple-900 transition-all duration-300"
-                >
-                  Resume Journey
-                </motion.button>
-            )}
+          {isJourneyActive && (
             <motion.button
-              onClick={onStartAssignment}
+              onClick={onResumeJourney}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="py-3 px-6 bg-gradient-to-r from-green-400 to-green-800 text-white font-semibold rounded-xl shadow-md hover:from-green-500 hover:to-green-900 transition-all duration-300"
+              className="py-3 px-6 bg-gradient-to-r from-purple-500 to-purple-800 text-white font-semibold rounded-xl shadow-md hover:from-purple-600 hover:to-purple-900 transition-all duration-300"
             >
-              Doing an Assignment?
+              Resume Journey
             </motion.button>
+          )}
+          <motion.button
+            onClick={onStartAssignment}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="py-3 px-6 bg-gradient-to-r from-green-400 to-green-800 text-white font-semibold rounded-xl shadow-md hover:from-green-500 hover:to-green-900 transition-all duration-300"
+          >
+            Doing an Assignment?
+          </motion.button>
         </div>
         <motion.button
           onClick={onViewJourneys}

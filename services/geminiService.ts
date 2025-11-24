@@ -1,7 +1,7 @@
 // ai.ts
 import { getAI, getGenerativeModel } from "firebase/ai";
 import { app } from "../firebaseConfig";
-import { LearningJourney } from "../types";
+import { LearningJourney, Verbosity } from "../types";
 import {
   Type,
   HarmCategory,
@@ -261,7 +261,7 @@ const responseToText = (res: GenerateContentResult): string => {
     }
     const t = (res as any)?.response?.text?.();
     if (typeof t === "string" && t.trim()) return t;
-  } catch {}
+  } catch { }
   return "";
 };
 
@@ -328,7 +328,7 @@ const generateJson = async <T = any>(
   if (txt && /[{[]/.test(txt)) {
     try {
       return tryParseJson<T>(txt);
-    } catch {}
+    } catch { }
   }
 
   // attempt 2 (strict JSON)
@@ -340,7 +340,7 @@ IMPORTANT: Return ONLY valid JSON. Start with '{' and end with '}'. No prose, no
   if (txt && /[{[]/.test(txt)) {
     try {
       return tryParseJson<T>(txt);
-    } catch {}
+    } catch { }
   }
 
   // fallback to minimal
@@ -358,16 +358,21 @@ const trimWords = (s: string, maxWords: number) => {
   return words.slice(0, maxWords).join(" ") + "…";
 };
 
-const normalizeJourney = (j: LearningJourney): LearningJourney => {
+const normalizeJourney = (j: LearningJourney, verbosity: Verbosity = 'long'): LearningJourney => {
   const out: LearningJourney = { title: (j.title || "").trim(), modules: [] };
+
+  // Define word limits based on verbosity
+  const limits = verbosity === 'short'
+    ? { summary: 60, keyPoints: 12 }
+    : { summary: 120, keyPoints: 16 };
 
   for (const m of j.modules || []) {
     const base = { title: (m.title || "").trim(), type: m.type } as any;
 
     if (m.type === "Learn") {
-      base.summary = m.summary ? trimWords(m.summary, 120) : "";
+      base.summary = m.summary ? trimWords(m.summary, limits.summary) : "";
       base.keyPoints = Array.isArray(m.keyPoints)
-        ? m.keyPoints.slice(0, 4).map((kp: string) => trimWords(kp, 30))
+        ? m.keyPoints.slice(0, 4).map((kp: string) => trimWords(kp, limits.keyPoints))
         : [];
       base.imagePrompt = m.imagePrompt ? trimWords(m.imagePrompt, 25) : "";
     } else if (m.type === "Quiz" || m.type === "Test") {
@@ -385,9 +390,9 @@ const normalizeJourney = (j: LearningJourney): LearningJourney => {
       base.instructions = m.instructions ? trimWords(m.instructions, 40) : "";
       base.pairs = Array.isArray(m.pairs)
         ? m.pairs.slice(0, 4).map((p: any) => ({
-            term: (p.term || "").trim(),
-            definition: trimWords(p.definition || "", 40),
-          }))
+          term: (p.term || "").trim(),
+          definition: trimWords(p.definition || "", 40),
+        }))
         : [];
     } else if (m.type === "Assignment") {
       base.questions = (m.questions || []).slice(0, 1).map((q: any) => {
@@ -424,35 +429,42 @@ const normalizeJourney = (j: LearningJourney): LearningJourney => {
  */
 // DROP-IN REPLACEMENT
 export const generateLearningJourney = async (
-    text: string,
-    opts: {
-      maxModules?: number;                // default 8
-      includeTest?: boolean;              // default true
-      allowMatching?: boolean;            // default true
-      minLearnBeforeInteractive?: number; // default 2
-      titleHint?: string;                 // optional branding/title steer
-      concurrency?: number;               // default 4 (parallel calls)
-    } = {}
-  ): Promise<LearningJourney> => {
-    const {
-      maxModules = 40,
-      includeTest = true,
-      allowMatching = true,
-      minLearnBeforeInteractive = 2,
-      titleHint = "",
-      concurrency = 12,
-    } = opts;
-  
-    // 1) PLAN (tiny)
-    const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
-      {
-        generationConfig: {
-          ...BASE_JSON_CONFIG,
-          responseSchema: journeyPlanSchema as any,
-          temperature: 0.35,
-        },
+  text: string,
+  opts: {
+    maxModules?: number;                // default 8
+    includeTest?: boolean;              // default true
+    allowMatching?: boolean;            // default true
+    minLearnBeforeInteractive?: number; // default 2
+    titleHint?: string;                 // optional branding/title steer
+    concurrency?: number;               // default 4 (parallel calls)
+    verbosity?: Verbosity;              // default 'long'
+  } = {}
+): Promise<LearningJourney> => {
+  const {
+    maxModules = 40,
+    includeTest = true,
+    allowMatching = true,
+    minLearnBeforeInteractive = 2,
+    titleHint = "",
+    concurrency = 12,
+    verbosity = 'long',
+  } = opts;
+
+  // Define word limits based on verbosity
+  const limits = verbosity === 'short'
+    ? { summary: 60, keyPoints: 12 }
+    : { summary: 120, keyPoints: 16 };
+
+  // 1) PLAN (tiny)
+  const plan = await generateJson<{ title: string; plan: { type: string; title: string; focus?: string }[] }>(
+    {
+      generationConfig: {
+        ...BASE_JSON_CONFIG,
+        responseSchema: journeyPlanSchema as any,
+        temperature: 0.35,
       },
-      `
+    },
+    `
   Create a compact learning journey PLAN for the provided study material.
   
   RULES:
@@ -468,47 +480,47 @@ export const generateLearningJourney = async (
   ${text}
   ---
   `.trim(),
-      { title: "", plan: [] }
+    { title: "", plan: [] }
+  );
+
+  // Normalize/guard the plan
+  let planList = (plan.plan || []).slice(0, maxModules);
+  if (!allowMatching) {
+    planList = planList.map(p => p.type === "Matching Game" ? { ...p, type: "Quiz" } : p);
+  }
+  if (!includeTest) {
+    planList = planList.filter(p => p.type !== "Test");
+    if (planList.length && planList[planList.length - 1].type === "Learn") {
+      planList.push({ type: "Quiz", title: "Wrap-up Quiz" } as any);
+      planList = planList.slice(0, maxModules);
+    }
+  }
+  if (!planList.length) {
+    planList.push(
+      { type: "Learn", title: "Core Concepts" } as any,
+      { type: "Quiz", title: "Quick Check" } as any,
+      ...(includeTest ? [{ type: "Test", title: "Final Test" } as any] : [])
     );
-  
-    // Normalize/guard the plan
-    let planList = (plan.plan || []).slice(0, maxModules);
-    if (!allowMatching) {
-      planList = planList.map(p => p.type === "Matching Game" ? { ...p, type: "Quiz" } : p);
-    }
-    if (!includeTest) {
-      planList = planList.filter(p => p.type !== "Test");
-      if (planList.length && planList[planList.length - 1].type === "Learn") {
-        planList.push({ type: "Quiz", title: "Wrap-up Quiz" } as any);
-        planList = planList.slice(0, maxModules);
-      }
-    }
-    if (!planList.length) {
-      planList.push(
-        { type: "Learn", title: "Core Concepts" } as any,
-        { type: "Quiz", title: "Quick Check" } as any,
-        ...(includeTest ? [{ type: "Test", title: "Final Test" } as any] : [])
-      );
-    }
-  
-    // 2) PER-MODULE generation — PARALLEL with concurrency cap
-    const modules = await mapWithLimit(planList, concurrency, async (stub) => {
-      if (stub.type === "Learn") {
-        return await generateJson<any>(
-          {
-            generationConfig: {
-              ...BASE_JSON_CONFIG,
-              responseSchema: learnModuleSchema as any,
-              temperature: 0.45,
-            },
+  }
+
+  // 2) PER-MODULE generation — PARALLEL with concurrency cap
+  const modules = await mapWithLimit(planList, concurrency, async (stub) => {
+    if (stub.type === "Learn") {
+      return await generateJson<any>(
+        {
+          generationConfig: {
+            ...BASE_JSON_CONFIG,
+            responseSchema: learnModuleSchema as any,
+            temperature: 0.45,
           },
-          `
+        },
+        `
   Return ONLY JSON for one "Learn" module:
   { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
   
   WORD LIMITS:
-  - summary ≤ 120 words
-  - each keyPoints item ≤ 16 words
+  - summary ≤ ${limits.summary} words
+  - each keyPoints item ≤ ${limits.keyPoints} words
   - imagePrompt ≤ 25 words
   
   Title: ${stub.title}
@@ -519,20 +531,20 @@ export const generateLearningJourney = async (
   ${text}
   ---
   `.trim(),
-          { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
-        );
-      }
-  
-      if (stub.type === "Quiz") {
-        return await generateJson<any>(
-          {
-            generationConfig: {
-              ...BASE_JSON_CONFIG,
-              responseSchema: quizModuleSchema as any,
-              temperature: 0.45,
-            },
+        { title: stub.title, type: "Learn", summary: "", keyPoints: [], imagePrompt: "" }
+      );
+    }
+
+    if (stub.type === "Quiz") {
+      return await generateJson<any>(
+        {
+          generationConfig: {
+            ...BASE_JSON_CONFIG,
+            responseSchema: quizModuleSchema as any,
+            temperature: 0.45,
           },
-          `
+        },
+        `
   Return ONLY JSON for one "Quiz" module:
   { "title", "type":"Quiz", "questions": [ 1–2 MCQs ] }.
   
@@ -549,20 +561,20 @@ export const generateLearningJourney = async (
   ${text}
   ---
   `.trim(),
-          { title: stub.title, type: "Quiz", questions: [] }
-        );
-      }
-  
-      if (stub.type === "Matching Game" && allowMatching) {
-        return await generateJson<any>(
-          {
-            generationConfig: {
-              ...BASE_JSON_CONFIG,
-              responseSchema: matchingModuleSchema as any,
-              temperature: 0.45,
-            },
+        { title: stub.title, type: "Quiz", questions: [] }
+      );
+    }
+
+    if (stub.type === "Matching Game" && allowMatching) {
+      return await generateJson<any>(
+        {
+          generationConfig: {
+            ...BASE_JSON_CONFIG,
+            responseSchema: matchingModuleSchema as any,
+            temperature: 0.45,
           },
-          `
+        },
+        `
   Return ONLY JSON for one "Matching Game" module:
   { "title", "type":"Matching Game", "instructions", "pairs": 3–4 items }.
   
@@ -577,20 +589,20 @@ export const generateLearningJourney = async (
   ${text}
   ---
   `.trim(),
-          { title: stub.title, type: "Matching Game", instructions: "", pairs: [] }
-        );
-      }
-  
-      if (stub.type === "Test" && includeTest) {
-        return await generateJson<any>(
-          {
-            generationConfig: {
-              ...BASE_JSON_CONFIG,
-              responseSchema: testModuleSchema as any,
-              temperature: 0.45,
-            },
+        { title: stub.title, type: "Matching Game", instructions: "", pairs: [] }
+      );
+    }
+
+    if (stub.type === "Test" && includeTest) {
+      return await generateJson<any>(
+        {
+          generationConfig: {
+            ...BASE_JSON_CONFIG,
+            responseSchema: testModuleSchema as any,
+            temperature: 0.45,
           },
-          `
+        },
+        `
   Return ONLY JSON for one "Test" module:
   { "title", "type":"Test", "questions": [ 3–4 MCQs ] }.
   
@@ -607,26 +619,26 @@ export const generateLearningJourney = async (
   ${text}
   ---
   `.trim(),
-          { title: stub.title, type: "Test", questions: [] }
-        );
-      }
-  
-      // Fallback for unexpected types
-      return {
-        title: stub.title,
-        type: "Assignment",
-        questions: [{ question: (stub.focus || "Answer the prompt clearly.").trim() }],
-      };
-    });
-  
-    // 3) Assemble + enforce word limits
-    return normalizeJourney({
-      title: plan.title || titleHint || "Learning Journey",
-      modules,
-    } as LearningJourney);
-  };
-  
-  
+        { title: stub.title, type: "Test", questions: [] }
+      );
+    }
+
+    // Fallback for unexpected types
+    return {
+      title: stub.title,
+      type: "Assignment",
+      questions: [{ question: (stub.focus || "Answer the prompt clearly.").trim() }],
+    };
+  });
+
+  // 3) Assemble + enforce word limits
+  return normalizeJourney({
+    title: plan.title || titleHint || "Learning Journey",
+    modules,
+  } as LearningJourney, verbosity);
+};
+
+
 
 /**
  * ------------------------------------------------------------
@@ -875,6 +887,7 @@ export const generateAssignmentJourney = async (
     minLearnBeforeAssignment?: number;   // # Learn modules before first Assignment (default 1)
     titleHint?: string;                  // optional title steer
     concurrency?: number;                // parallel calls to the model (default 6)
+    verbosity?: Verbosity;               // default 'long'
   } = {}
 ): Promise<LearningJourney> => {
   const {
@@ -882,7 +895,13 @@ export const generateAssignmentJourney = async (
     minLearnBeforeAssignment = 1,
     titleHint = "",
     concurrency = 6,
+    verbosity = 'long',
   } = opts;
+
+  // Define word limits based on verbosity
+  const limits = verbosity === 'short'
+    ? { summary: 60, keyPoints: 12 }
+    : { summary: 120, keyPoints: 16 };
 
   // 0) Extract questions deterministically from the raw text
   const questions = extractQuestions(text);
@@ -937,8 +956,8 @@ Return ONLY JSON for one "Learn" module:
 { "title", "type":"Learn", "summary", "keyPoints": 2–4 strings, "imagePrompt" }.
 
 WORD LIMITS:
-- summary ≤ 60 words
-- each keyPoints item ≤ 20 words
+- summary ≤ ${limits.summary} words
+- each keyPoints item ≤ ${limits.keyPoints} words
 - imagePrompt ≤ 25 words
 
 Title: ${stub.title}
@@ -973,9 +992,9 @@ ${text}
   const normalized = normalizeJourney({
     title: journeyTitle,
     modules,
-  } as LearningJourney);
+  } as LearningJourney, verbosity);
   console.log(">>> NORMALIZED ASSIGNMENT JOURNEY", JSON.stringify(normalized, null, 2));
-  
+
   return normalized;
 };
 
@@ -1004,7 +1023,7 @@ export const getTextFromImage = async (
 export const getTextFromPdf = async (file: File): Promise<string> => {
   const model = getGenerativeModel(ai, {
     model: "gemini-2.5-pro",
-    generationConfig: { ...BASE_TEXT_CONFIG},
+    generationConfig: { ...BASE_TEXT_CONFIG },
     safetySettings: [...BASE_SAFETY],
   });
 

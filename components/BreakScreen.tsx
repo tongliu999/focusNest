@@ -33,6 +33,12 @@ const BreakScreen: React.FC<BreakScreenProps> = ({ onComplete }) => {
                 <h1 className="text-5xl font-bold text-white mb-4">Time for a break!</h1>
                 <p className="text-2xl text-gray-300">Stretch, grab some water, or just rest your eyes.</p>
                 <p className="text-4xl text-white font-mono mt-8">{formatTime(timeLeft)}</p>
+                <button
+                    onClick={onComplete}
+                    className="mt-8 px-6 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors"
+                >
+                    Skip Break
+                </button>
             </div>
         </div>
     );

@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Module, ModuleType } from './types';
+import { Module, ModuleType, Verbosity } from './types';
 import { generateLearningJourney, generateRefresher, generateAssignmentJourney, checkAnswer } from './services/geminiService';
 import { db } from './firebaseConfig.ts';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, orderBy } from "firebase/firestore";
@@ -88,11 +88,11 @@ const App: React.FC = () => {
     }, []);
 
 
-    const handleGenerateJourney = useCallback(async (text: string) => {
+    const handleGenerateJourney = useCallback(async (text: string, verbosity: Verbosity = 'long') => {
         setError(null);
         setAppState('loading');
         try {
-            const journey = await generateLearningJourney(text);
+            const journey = await generateLearningJourney(text, { verbosity });
 
             if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
                 throw new Error("Generated journey is incomplete or empty.");
@@ -110,11 +110,11 @@ const App: React.FC = () => {
         }
     }, []);
 
-    const handleGenerateAssignmentJourney = useCallback(async (text: string) => {
+    const handleGenerateAssignmentJourney = useCallback(async (text: string, verbosity: Verbosity = 'long') => {
         setError(null);
         setAppState('loading');
         try {
-            const journey = await generateAssignmentJourney(text);
+            const journey = await generateAssignmentJourney(text, { verbosity });
 
             if (!journey || !journey.title || !journey.modules || journey.modules.length === 0) {
                 throw new Error("Generated journey is incomplete or empty.");

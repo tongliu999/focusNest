@@ -12,6 +12,9 @@ export enum QuestionType {
   Latex = 'Latex',
 }
 
+export type Verbosity = 'short' | 'long';
+
+
 export interface PracticeQuestion {
   question: string;
   options: string[];
@@ -38,3 +41,9 @@ export interface Module {
   pairs?: MatchingPair[];
   instructions?: string;
 }
+
+export interface LearningJourney {
+  title: string;
+  modules: Module[];
+}
+
