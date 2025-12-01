@@ -10,6 +10,7 @@ import {
   GenerateContentResult,
 } from "@google/genai";
 import jsPDF from "jspdf";
+import { isFeatureEnabled } from "./featureFlags";
 
 /**
  * ------------------------------------------------------------
@@ -567,7 +568,7 @@ export const generateLearningJourney = async (
       );
 
       // Generate image from the imagePrompt
-      if (mod.imagePrompt) {
+      if (mod.imagePrompt && isFeatureEnabled('ENABLE_IMAGE_GENERATION')) {
         const imageData = await generateImage(mod.imagePrompt);
         console.log('Image generated for:', mod.title, 'Data length:', imageData?.length || 0);
         mod.image = imageData;
@@ -794,7 +795,7 @@ ${JSON.stringify(t.questions)}
     // Generate images for Learn modules
     if (res.modules) {
       await Promise.all(res.modules.map(async (m: any) => {
-        if (m.type === 'Learn' && m.imagePrompt) {
+        if (m.type === 'Learn' && m.imagePrompt && isFeatureEnabled('ENABLE_IMAGE_GENERATION')) {
           m.image = await generateImage(m.imagePrompt);
         }
       }));
