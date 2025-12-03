@@ -70,8 +70,6 @@ Focus Flow is an interactive, AI-powered learning platform designed to help you 
     VITE_GEMINI_API_KEY=your_gemini_api_key
     ```
 
-    *Note: Verify the exact variable names in `firebaseConfig.ts` and `services/geminiService.ts`.*
-
 4.  **Run the development server:**
 
     ```bash
