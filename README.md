@@ -2,8 +2,7 @@
 
 Focus Flow is an interactive, AI-powered learning platform designed to help you master new topics through personalized learning journeys. By combining structured learning modules with the Pomodoro technique and gamification elements, Focus Flow makes learning engaging, efficient, and fun.
 
-![Focus Flow Dashboard]<img width="2548" height="1217" alt="Screenshot 2025-11-25 000819" src="https://github.com/user-attachments/assets/46a84bce-1879-4ab9-bfa3-f7270243be97" />
-()
+<img width="2548" height="1217" alt="Screenshot 2025-11-25 000819" src="https://github.com/user-attachments/assets/46a84bce-1879-4ab9-bfa3-f7270243be97"/>
 
 ## Features
 
