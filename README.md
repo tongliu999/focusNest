@@ -9,8 +9,11 @@ Focus Flow is an interactive, AI-powered learning platform designed to help you 
 - **AI-Powered Learning Journeys**: Instantly generate comprehensive learning paths on any topic using Google's Gemini AI.
 - **Diverse Learning Modules**:
   - **Learn**: Structured content with key takeaways.
+    <img width="2559" height="1220" alt="Screenshot 2025-11-25 232555" src="https://github.com/user-attachments/assets/a46afa75-17f9-4903-8f1e-032749e3b889" />
   - **Quiz**: Test your knowledge with interactive questions and immediate feedback.
+    <img width="1100" height="766" alt="Screenshot 2025-11-26 001502" src="https://github.com/user-attachments/assets/818f6a28-bc89-49d3-9b69-2548b406dc2a" />
   - **Matching Game**: Reinforce concepts through memory-matching challenges.
+    <img width="1141" height="770" alt="Screenshot 2025-11-26 001003" src="https://github.com/user-attachments/assets/66c203e7-e3af-4561-a6b1-eaadc2a2336a" />
   - **Assignment**: Apply what you've learned with open-ended tasks and get AI feedback.
 - **Focus & Productivity**: Built-in Pomodoro timer to manage focus sessions and breaks, rewarding you with coins for staying on task.
 - **Gamification**: Earn coins, upgrade your virtual duck companion's stats (Speed, Jump Height), and track your progress.
