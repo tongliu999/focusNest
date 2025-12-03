@@ -84,10 +84,6 @@ Focus Flow is an interactive, AI-powered learning platform designed to help you 
 3.  **Focus**: Use the timer in the top right to start a focus session. Earn coins for completing sessions.
 4.  **Review**: Check your dashboard to see your saved journeys and progress.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
 This project is licensed under the MIT License.
